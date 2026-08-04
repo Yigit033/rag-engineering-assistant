@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>RAG / LLM Çalışma Notları</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm; }
+
+  * { box-sizing: border-box; }
+
+  body {
+    font-family: "Segoe UI", "Calibri", system-ui, sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.5;
+    color: #1a1a1a;
+    margin: 0;
+  }
+
+  /* ---- Kapak ---- */
+  .cover {
+    page-break-after: always;
+    padding-top: 55mm;
+    text-align: center;
+  }
+  .cover h1 {
+    font-size: 30pt;
+    margin: 0 0 6mm 0;
+    letter-spacing: -0.5px;
+  }
+  .cover .sub {
+    font-size: 12pt;
+    color: #555;
+    margin-bottom: 20mm;
+  }
+  .cover .toc {
+    display: inline-block;
+    text-align: left;
+    font-size: 11pt;
+    line-height: 2;
+    border-top: 2px solid #1a1a1a;
+    border-bottom: 2px solid #1a1a1a;
+    padding: 6mm 10mm;
+  }
+  .cover .toc b { display: inline-block; width: 22mm; }
+  .cover .howto {
+    margin: 18mm auto 0;
+    max-width: 130mm;
+    text-align: left;
+    font-size: 10pt;
+    background: #f4f4f4;
+    border-left: 3px solid #666;
+    padding: 4mm 5mm;
+  }
+  .cover .howto p { margin: 0 0 2mm 0; }
+  .cover .howto p:last-child { margin: 0; }
+
+  /* ---- Sayfa yapısı ---- */
+  .page { page-break-before: always; }
+  .page:first-of-type { page-break-before: avoid; }
+
+  h2 {
+    font-size: 17pt;
+    margin: 0 0 1mm 0;
+    padding-bottom: 2mm;
+    border-bottom: 3px solid #1a1a1a;
+  }
+  h2 .no {
+    font-size: 10pt;
+    font-weight: normal;
+    color: #777;
+    display: block;
+    margin-bottom: 1mm;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+
+  h3 {
+    font-size: 12pt;
+    margin: 6mm 0 2mm 0;
+    padding: 1.5mm 3mm;
+    background: #1a1a1a;
+    color: #fff;
+    page-break-after: avoid;
+  }
+
+  h4 {
+    font-size: 10.5pt;
+    margin: 4mm 0 1.5mm 0;
+    page-break-after: avoid;
+  }
+
+  ul { margin: 0 0 3mm 0; padding-left: 6mm; }
+  li { margin-bottom: 1.2mm; }
+  ol { margin: 0 0 3mm 0; padding-left: 6mm; }
+
+  b, strong { color: #000; }
+
+  code {
+    font-family: "Consolas", "Courier New", monospace;
+    font-size: 9pt;
+    background: #eee;
+    padding: 0.3mm 1mm;
+    border-radius: 2px;
+  }
+
+  pre {
+    font-family: "Consolas", "Courier New", monospace;
+    font-size: 8.5pt;
+    line-height: 1.45;
+    background: #f6f6f6;
+    border-left: 3px solid #999;
+    padding: 3mm 4mm;
+    margin: 0 0 3mm 0;
+    white-space: pre-wrap;
+    page-break-inside: avoid;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9.5pt;
+    margin: 0 0 3mm 0;
+    page-break-inside: avoid;
+  }
+  th {
+    background: #e8e8e8;
+    text-align: left;
+    padding: 1.8mm 2.5mm;
+    border: 1px solid #bbb;
+    font-size: 9pt;
+  }
+  td {
+    padding: 1.8mm 2.5mm;
+    border: 1px solid #ccc;
+    vertical-align: top;
+  }
+  td:first-child { width: 38%; font-weight: 600; }
+  table.wide td:first-child { width: 30%; }
+
+  .trap {
+    background: #fff8f0;
+    border-left: 3px solid #c8641e;
+    padding: 3mm 4mm;
+    margin: 0 0 3mm 0;
+  }
+  .trap ul { margin-bottom: 0; }
+
+  .check {
+    background: #f0f6f2;
+    border-left: 3px solid #2b7a4b;
+    padding: 3mm 4mm;
+    margin: 0 0 3mm 0;
+  }
+  .check ol, .check ul { margin-bottom: 0; }
+
+  .obs {
+    background: #f4f4f4;
+    border: 1px dashed #999;
+    padding: 3mm 4mm;
+    margin: 4mm 0 0 0;
+    font-size: 9.5pt;
+    color: #333;
+  }
+  .obs .tag {
+    display: block;
+    font-size: 8pt;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #666;
+    margin-bottom: 1.5mm;
+  }
+  .obs p { margin: 0; }
+
+  .qa { font-size: 10pt; }
+  .qa ol { padding-left: 6mm; }
+
+  .kv { margin-bottom: 3mm; }
+  .kv b { display: block; }
+</style>
+</head>
+<body>
+
+<!-- =================== KAPAK =================== -->
+<div class="cover">
+  <h1>RAG / LLM Çalışma Notları</h1>
+  <div class="sub">Retrieval-Augmented Generation · Embedding · Vektör Arama · Değerlendirme</div>
+
+  <div class="toc">
+    <b>Sayfa 1</b> Embedding &amp; Vektör Arama<br>
+    <b>Sayfa 2</b> Chunking &amp; Parsing<br>
+    <b>Sayfa 3</b> Retrieval Kalitesi<br>
+    <b>Sayfa 4</b> LLM &amp; GenAI Katmanı<br>
+    <b>Sayfa 5</b> Değerlendirme (Evaluation)<br>
+    <b>Sayfa 6</b> Production'a Taşıma
+  </div>
+
+  <div class="howto">
+    <p><b>Her sayfa aynı iskelete sahip:</b></p>
+    <p>① <b>Bu nedir</b> — kavramların tanımı<br>
+       ② <b>Nasıl yapılır</b> — işin akışı ve mantığı<br>
+       ③ <b>Karar noktaları</b> — hangi durumda hangi seçenek<br>
+       ④ <b>Tuzaklar</b> — nerede sessizce bozulur<br>
+       + <b>Kontrol yöntemi</b> — doğru çalıştığını nasıl kanıtlarım<br>
+       + <b>Mülakat soruları</b> — sözlü anlatarak test et</p>
+    <p style="margin-top:3mm"><b>Kesikli çerçeveli "GÖZLEM" kutuları ezberlenmek için değil</b> — kuralların neden böyle olduğunu gösteren gerçek ölçümlerdir.</p>
+  </div>
+</div>
+
+
+<!-- =================== SAYFA 1 =================== -->
+<div class="page">
+<h2><span class="no">Sayfa 1</span>Embedding &amp; Vektör Arama</h2>
+
+<h3>① Bu nedir</h3>
+<ul>
+  <li><b>Embedding:</b> metni sayı vektörüne çevirmek. Yakın anlam = yakın vektör.</li>
+  <li><b>Vektör uzayı:</b> bu vektörlerin yaşadığı N boyutlu uzay. Arama = "en yakın komşuyu bul".</li>
+  <li><b>Vektör veritabanı:</b> vektörleri saklayıp "en yakını bul" sorgusunu hızlı cevaplayan sistem. Örnek: Qdrant, Milvus, pgvector.</li>
+  <li><b>FAISS:</b> veritabanı <b>değil</b>, arama kütüphanesi. Kalıcılık, filtreleme, çok kullanıcı desteği yok.</li>
+  <li><b>Index:</b> vektörlerin arama için düzenlenmiş hali. Tipi, hızı ve kesinliği belirler.</li>
+  <li><b>ANN (Approximate Nearest Neighbor):</b> yaklaşık komşu arama. Kesinlikten az feragat, çok hız kazancı.</li>
+  <li><b>Bi-encoder:</b> sorgu ve doküman <b>ayrı</b> vektörlenir → hızlı → <b>retrieval</b> için.</li>
+  <li><b>Cross-encoder:</b> sorgu ve doküman <b>birlikte</b> modele girer, tek skor çıkar → yavaş ama kaliteli → <b>rerank</b> için.</li>
+  <li><b>Normalize:</b> vektörü birim uzunluğa getirmek.</li>
+  <li><b>Cosine:</b> iki vektör arasındaki açı benzerliği. Normalize edilmişse dot product'a eşittir.</li>
+</ul>
+
+<h3>② Nasıl yapılır</h3>
+<pre>Doküman → parçala (chunk) → her chunk'ı embedding'e çevir → index'e yaz
+Soru     → aynı modelle embedding'e çevir → en yakın N chunk'ı bul → LLM'e ver</pre>
+<p><b>Kritik:</b> soru ve dokümanlar <b>aynı modelle</b> vektörlenmek zorunda. Farklı model = anlamsız sonuç.</p>
+<h4>Arama iki aşamalıdır</h4>
+<ul>
+  <li><b>1. aşama — geniş tara:</b> embedding ile hızlıca 20–50 aday bul. Amaç: doğru cevabı kaçırmamak (<i>recall</i>).</li>
+  <li><b>2. aşama — daralt:</b> cross-encoder bu adayları yeniden sıralar, en iyi 3–5'i seçilir (<i>precision</i>).</li>
+</ul>
+<p>Neden ikisi: hızlı model kalitesiz, kaliteli model yavaş. İkisini birleştirirsin.</p>
+
+<h3>③ Karar noktaları</h3>
+<table>
+  <tr><th>Karar</th><th>Kural</th></tr>
+  <tr><td>Hangi embedding modeli?</td><td><b>Dile göre.</b> Türkçe içerik varsa çok dilli model (<code>bge-m3</code>, <code>multilingual-e5</code>). Salt İngilizce eğitilmiş model kullanma.</td></tr>
+  <tr><td>Chunk ne kadar olsun?</td><td><b>Token</b> ile ölç, modelin limitinin %80'ini geçme.</td></tr>
+  <tr><td>Hangi index tipi?</td><td>&lt;100K vektör → <code>Flat</code> (dokunma) · 100K+ → <code>IVFFlat</code> · hız kritik → <code>HNSW</code> · bellek dar → <code>IVFPQ</code></td></tr>
+  <tr><td>Mesafe metriği?</td><td>Normalize et, <code>inner product</code> kullan.</td></tr>
+</table>
+
+<h4>Model seçmeden önce 5 kontrol</h4>
+<ol>
+  <li>Tokenizer diyakritikleri (ç ş ğ ı ö ü) koruyor mu?</li>
+  <li><code>max_seq_length</code> kaç?</li>
+  <li>Boyut kaç? (384 hızlı ↔ 1024 kaliteli)</li>
+  <li>Prefix istiyor mu? (E5 ailesi <code>"query:"</code> / <code>"passage:"</code> zorunlu kılar)</li>
+  <li>Kararı kendi verinde ölç. Sıralama tabloları (MTEB) sadece başlangıç noktası.</li>
+</ol>
+
+<h3>④ Tuzaklar</h3>
+<div class="trap">
+<table>
+  <tr><th>Tuzak</th><th>Sonuç</th></tr>
+  <tr><td>Chunk &gt; model limiti</td><td>Metnin sonu embedding'e girmez, hiç aranamaz</td></tr>
+  <tr><td>İngilizce tokenizer + Türkçe metin</td><td>Diyakritik silinir; <code>poliçe</code> ile <code>police</code> aynı vektör olur</td></tr>
+  <tr><td>Normalize yok + L2 mesafesi</td><td>Uzun vektörler cezalanır, sıralama bozulur</td></tr>
+  <tr><td>Model değişti, index aynı</td><td>Uyumsuz vektör uzayları, anlamsız sonuç</td></tr>
+</table>
+<p style="margin:0"><b>Dördünün ortak özelliği: hata mesajı vermezler.</b></p>
+</div>
+
+<h3>Kontrol yöntemi</h3>
+<div class="check">
+<ol>
+  <li>Tokenizer benim kelimelerimi nasıl parçalıyor? → token listesini gözle oku.</li>
+  <li>Anlamı yakın iki cümlenin benzerlik skoru gerçekten yüksek mi? → ölç, tahmin etme.</li>
+</ol>
+</div>
+
+<h3>Mülakat soruları</h3>
+<div class="qa">
+<ol>
+  <li>Retrieval neden iki aşamalı? Bi-encoder ve cross-encoder nerede kullanılır?</li>
+  <li><code>Flat</code> yerine ne zaman <code>IVFFlat</code> / <code>HNSW</code> kullanırsın?</li>
+  <li>Embedding modelini değiştirdin — index'e ne yapman gerekir, neden?</li>
+  <li>Cosine, dot product ve L2 ilişkisi nedir? Normalize edilmişse hangisi hangisine denk?</li>
+</ol>
+</div>
+
+<div class="obs">
+<span class="tag">Gözlem — ezberlemek için değil</span>
+<p><code>all-MiniLM-L6-v2</code> (salt İngilizce) modelinde ölçülen gerçek değerler:
+<code>cos("poliçe","police") = 1.0000</code> → tokenizer ç'yi siliyor, iki kelime birebir aynı vektör.
+<code>cos("gemi gövdesi dayanımı","hull strength") = 0.029</code> ama aynı ifadenin <code>"yemek tarifi"</code> ile benzerliği <b>0.358</b> → Türkçe ifade, kendi çevirisinden 12 kat çok alakasız metne benziyor. İngilizce tarafta 0.90 vs 0.05 ile kusursuz çalışıyor. <b>Sonuç: bu model Türkçe'de anlam değil "dil parmak izi" ölçüyor.</b></p>
+</div>
+</div>
+
+
+<!-- =================== SAYFA 2 =================== -->
+<div class="page">
+<h2><span class="no">Sayfa 2</span>Chunking &amp; Parsing</h2>
+
+<h3>① Bu nedir</h3>
+<ul>
+  <li><b>Parsing:</b> dosyadan metni çıkarmak (PDF/DOCX → text). Yapıyı (başlık, tablo, sıra) koruyup korumaman kaliteyi belirler.</li>
+  <li><b>Chunking:</b> dokümanı parçalara bölmek. Üç sebepten zorunlu: embedding modelinin token limiti var; LLM'e tüm dokümanı veremezsin; 500 sayfa tek vektöre sıkışırsa anlam erir.</li>
+  <li><b>Overlap:</b> komşu chunk'ların ortak kısmı. Sınırda bölünen cümle/fikir kaybolmasın diye.</li>
+  <li><b>Metadata:</b> chunk'a eklenen kaynak bilgisi (dosya adı, sayfa no). Kaynak göstermek ve filtreleme için.</li>
+</ul>
+
+<h3>② Nasıl yapılır</h3>
+<pre>Dosya → parse (metin + yapı) → chunk'la (+ metadata) → embed → index</pre>
+
+<h4>Chunking stratejileri (basitten iyiye)</h4>
+<ol>
+  <li><b>Fixed-size</b> — sabit N token. Basit ama cümleyi ortadan böler.</li>
+  <li><b>Recursive</b> — önce paragraf sınırından böl; sığmazsa satır, sonra cümle, sonra kelime. Pratikte iyi varsayılan.</li>
+  <li><b>Yapı bazlı (layout-aware)</b> — başlık/bölüm sınırlarından böl. Teknik dokümanda en iyisi.</li>
+  <li><b>Semantic</b> — cümleleri embedding'le, anlam değiştiği yerde kes. Pahalı, bazen daha iyi.</li>
+</ol>
+
+<h4>İki güçlendirme (kaliteyi belirgin artırır)</h4>
+<ul>
+  <li><b>Contextual retrieval:</b> her chunk'ın başına LLM ile 1–2 cümle bağlam ekle ("Bu bölüm X raporunun finans kısmından, Y'yi anlatıyor"), <i>sonra</i> embed et. Chunk tek başına okunduğunda anlamsızlaşma problemini çözer.</li>
+  <li><b>Parent-document (small-to-big):</b> <b>küçük</b> chunk ile ARA, ama LLM'e o chunk'ın <b>büyük ebeveynini</b> VER. Arama hassas, bağlam geniş olur.</li>
+</ul>
+
+<h3>③ Karar noktaları</h3>
+<table>
+  <tr><th>Karar</th><th>Kural</th></tr>
+  <tr><td>Chunk boyutu</td><td>Token ile ölç. Tipik 250–500 token, modelin limitinin %80'ini geçme.</td></tr>
+  <tr><td>Overlap</td><td>Chunk'ın %10–20'si.</td></tr>
+  <tr><td>Strateji</td><td>Düz metin → recursive. Başlıklı / tablolu teknik doküman → yapı bazlı.</td></tr>
+  <tr><td>PDF nasıl okunur</td><td>Önce metin katmanı var mı bak. Yoksa taranmış → <b>OCR gerekir</b>.</td></tr>
+  <tr><td>Tablolar</td><td>Düz metne çevirmek satır–kolon ilişkisini bozar. Markdown tablo olarak koru.</td></tr>
+</table>
+<p><b>Boyut ödünleşimi:</b> küçük chunk = hassas arama, eksik bağlam. Büyük chunk = zengin bağlam, gürültülü arama. Parent-document yaklaşımı ikisini birleştirir.</p>
+
+<h3>④ Tuzaklar</h3>
+<div class="trap">
+<ul>
+  <li><code>chunk_size</code> karakter, model limiti token → uyuşmazlık, chunk'ın sonu sessizce silinir.</li>
+  <li>Taranmış PDF'ten <b>0 chunk</b> çıkar, hata vermez → dosya sisteme hiç girmez. <b>"0 sonuç" asla başarı sayılmaz.</b></li>
+  <li>Overlap 0 → sınırdaki cümle bölünür, o bilgi bulunamaz.</li>
+  <li>Metadata eklemezsen kaynak gösteremez, filtreleyemezsin.</li>
+  <li>Tablo düzleşince sayılar yanlış satırla eşleşir → cevap kendinden emin <i>ve</i> yanlış olur.</li>
+</ul>
+</div>
+
+<h3>Kontrol yöntemi</h3>
+<div class="check">
+<ol>
+  <li>Chunk'ları <b>gözle oku</b> — cümle ortasından bölünmüş mü?</li>
+  <li>Her dosya için "kaç chunk çıktı" logla → <b>0 olana alarm kur</b>.</li>
+  <li>Token dağılımını ölç → model limitini aşan chunk var mı?</li>
+</ol>
+</div>
+
+<h3>Mülakat soruları</h3>
+<div class="qa">
+<ol>
+  <li>Chunk boyutunu neye göre seçersin? Küçük ve büyük olmasının etkisi ne?</li>
+  <li>Overlap neden var?</li>
+  <li>Parent-document (small-to-big) retriever hangi problemi çözer?</li>
+  <li>Taranmış bir PDF'i nasıl fark edersin, ne yaparsın?</li>
+</ol>
+</div>
+
+<div class="obs">
+<span class="tag">Gözlem — ezberlemek için değil</span>
+<p>Bir projede chunk ayarı 1000 <b>karakter</b>, embedding modeli ise 256 <b>token</b> kabul ediyordu → chunk'lar 400 token'a çıkıyor, 8 chunk'ın 4'ü sessizce kesiliyordu (toplam 420 token görünmez). Ayrıca taranmış bir PDF <b>0 chunk</b> üretti ve sistem bunu hata saymadı → 7 sayfalık doküman aramaya hiç girmedi.</p>
+</div>
+</div>
+
+
+<!-- =================== SAYFA 3 =================== -->
+<div class="page">
+<h2><span class="no">Sayfa 3</span>Retrieval Kalitesi</h2>
+
+<h3>① Bu nedir</h3>
+<ul>
+  <li><b>Retrieval:</b> soruya en ilgili chunk'ları bulmak. RAG kalitesinin en belirleyici aşaması.</li>
+  <li><b>Dense arama (embedding):</b> anlam benzerliğine bakar. Eşanlam ve parafrazı yakalar.</li>
+  <li><b>Sparse arama (BM25):</b> kelime örtüşmesine bakar. Özel isim, kod, seri numarası, kısaltmayı yakalar.</li>
+  <li><b>Hybrid arama:</b> ikisini birlikte kullanmak. Hata modları farklı olduğu için birbirini tamamlar.</li>
+  <li><b>RRF (Reciprocal Rank Fusion):</b> iki sıralı listeyi <b>skorlarına değil sıralarına</b> göre birleştirme yöntemi.</li>
+  <li><b>Reranking:</b> adayları cross-encoder ile yeniden sıralamak. Genelde en büyük kalite artışı buradan gelir.</li>
+  <li><b>Recall:</b> doğru cevabı adaylar arasına alabildim mi? · <b>Precision:</b> LLM'e verdiğim az sayıda chunk gerçekten isabetli mi?</li>
+</ul>
+
+<h3>② Nasıl yapılır</h3>
+<pre>Soru → [dense ara]  ─┐
+                     ├→ RRF ile birleştir → cross-encoder ile rerank → en iyi 3-5 → LLM
+      → [sparse ara] ─┘</pre>
+
+<h4>RRF'in mantığı</h4>
+<p>Her dokümana, geçtiği her listedeki sırasına göre <code>1 / (60 + sıra)</code> puanı verilir ve puanlar toplanır. Skorlar kullanılmadığı için BM25 ile cosine'ın <b>farklı ölçekte olması sorun olmaktan çıkar</b>. 60 sabiti ilk sıraların ezici üstünlüğünü kırar; böylece <b>iki listede birden geçen doküman</b>, tek listede birinci olanı geçer. RRF'in bütün değeri bu "uzlaşma ödülü"nden gelir.</p>
+
+<h4>Sorgu iyileştirme (retrieval'ı besleyen katman)</h4>
+<ul>
+  <li><b>Query rewriting:</b> takip sorusunu ("peki maliyeti?") konuşma geçmişini kullanarak bağımsız, tam bir soruya çevir — <i>sonra</i> ara.</li>
+  <li><b>Multi-query:</b> sorunun 2–3 farklı ifadesini üret, hepsiyle ara, sonuçları birleştir.</li>
+  <li><b>HyDE:</b> LLM'e önce uydurma bir cevap yazdır, o cevabı arama sorgusu olarak kullan. Soru kısa, doküman uzunsa işe yarar.</li>
+</ul>
+
+<h3>③ Karar noktaları</h3>
+<table class="wide">
+  <tr><th>Karar</th><th>Kural</th></tr>
+  <tr><td>Hybrid mi, tek başına dense mi?</td><td>Metinde özel isim, seri no, kod, kısaltma varsa <b>hybrid şart</b>. Sadece anlatı metniyse dense yeterli olabilir.</td></tr>
+  <tr><td>Kaç aday çekilir? (fetch_k)</td><td>20–50 çek, LLM'e 3–5 ver. Geniş tara, sonra daralt.</td></tr>
+  <tr><td>Reranker koyulur mu?</td><td>20+ aday varsa <b>evet</b>. Kalite/emek oranı en yüksek iyileştirme.</td></tr>
+  <tr><td>RRF mi ağırlıklı toplama mı?</td><td><b>RRF</b> varsayılan — ayar (tuning) gerektirmez. Ağırlıklı yöntem her veri setinde yeniden ayarlanmak ister.</td></tr>
+  <tr><td>Takip soruları var mı?</td><td>Varsa query rewriting zorunlu. Aksi halde "onun fiyatı ne?" hiçbir şey bulmaz.</td></tr>
+</table>
+
+<h3>④ Tuzaklar</h3>
+<div class="trap">
+<ul>
+  <li><b>Birleştirme anahtarı olarak nesne kimliği kullanmak</b> (Python'da <code>id()</code>) → aynı içerik farklı nesnede olunca eşleşme bulunmaz, fusion sessizce çalışmaz. Anahtar <b>içerikten</b> türetilmeli (hash).</li>
+  <li>Aynı veriyi iki kez yüklemek → nesne kimlikleri değişir, kimliğe dayanan her mantık bozulur.</li>
+  <li>Doğrudan 3 aday çekmek → doğru chunk hiç aday olmaz; reranker onu kurtaramaz. <b>Recall kaybı geri alınamaz.</b></li>
+  <li>Konuşma geçmişini retriever'a vermemek → takip soruları çöker.</li>
+  <li>BM25'i ham <code>split()</code> ile tokenize etmek → Türkçe'de büyük/küçük harf ve noktalama yüzünden eşleşme kaçar. Ayrıca Python'da <code>"İ".lower()</code> iki karakter üretir ve sessizce bozar.</li>
+</ul>
+</div>
+
+<h3>Kontrol yöntemi</h3>
+<div class="check">
+<ol>
+  <li><b>"Kaç sonuç iki retriever'da birden geçti" sayısını logla.</b> Sürekli 0 ise fusion çalışmıyor demektir.</li>
+  <li>Bildiğin bir cevabın hangi chunk'ta olduğunu işaretle, o chunk adaylar arasına giriyor mu diye bak.</li>
+  <li>Sadece BM25, sadece dense ve hybrid sonuçlarını yan yana koy — hybrid gerçekten iyileştiriyor mu?</li>
+</ol>
+</div>
+
+<h3>Mülakat soruları</h3>
+<div class="qa">
+<ol>
+  <li>Hybrid arama neden tek başına dense'ten iyi? Hangi sorgu tipinde BM25 kazanır?</li>
+  <li>RRF'te 60 sabiti ne işe yarar? Skor yerine sıra kullanmanın avantajı ne?</li>
+  <li>Neden LLM'e vereceğinden çok daha fazla aday çekersin?</li>
+  <li>Takip sorularını nasıl ele alırsın?</li>
+</ol>
+</div>
+
+<div class="obs">
+<span class="tag">Gözlem — ezberlemek için değil</span>
+<p>Bir projede RRF yazılmıştı ama birleştirme anahtarı olarak nesne kimliği (<code>id()</code>) kullanılıyor, vektör store'u da iki kez yükleniyordu. Sonuç: BM25 ve dense sonuçları farklı nesnelere işaret ediyor, skorlar hiç toplanmıyordu — yani <b>fusion hiç çalışmıyordu</b>, sistem fiilen sadece dense arama yapıyordu. İçerik tabanlı hash anahtarına geçilip store tek örnek yapıldığında "iki listede birden geçen chunk" sayısı 0'dan 2/3'e çıktı. Hata mesajı yoktu.</p>
+</div>
+</div>
+
+
+<!-- =================== SAYFA 4 =================== -->
+<div class="page">
+<h2><span class="no">Sayfa 4</span>LLM &amp; GenAI Katmanı</h2>
+
+<h3>① Bu nedir</h3>
+<ul>
+  <li><b>LLM:</b> bir sonraki token'ı tahmin eden model. "Bilgi tabanı" değil, örüntü tamamlayıcıdır — bu yüzden uydurur.</li>
+  <li><b>Token:</b> metnin model için en küçük parçası. Limitler ve fiyat token ile ölçülür.</li>
+  <li><b>Context window:</b> modelin bir seferde görebileceği toplam token (prompt + cevap).</li>
+  <li><b>Prompt:</b> modele verilen talimat + bağlam + soru.</li>
+  <li><b>Temperature:</b> rastgelelik ayarı. 0 = kararlı ve tekrarlanabilir, yüksek = yaratıcı ve değişken.</li>
+  <li><b>Hallucination:</b> modelin emin bir tonla uydurması.</li>
+  <li><b>Grounding:</b> cevabı verilen kaynağa dayandırma zorunluluğu. RAG'in varlık sebebi.</li>
+  <li><b>Structured output:</b> modelin serbest metin değil, belirlenen şemaya uygun JSON döndürmesi.</li>
+  <li><b>Tool calling:</b> modelin hangi fonksiyonu hangi argümanla çağıracağını önermesi.</li>
+  <li><b>Streaming:</b> cevabı token token akıtmak. Algılanan hızı belirgin artırır.</li>
+</ul>
+
+<h3>② Nasıl yapılır</h3>
+<h4>RAG prompt iskeleti</h4>
+<pre>[Rol]      Sen X dokümanları üzerinde çalışan bir asistansın.
+[Kurallar] - SADECE aşağıdaki bağlamı kullan.
+           - Bağlamda yoksa "Bu bilgi dokümanlarda yok" de.
+           - Her iddianın yanına kaynak numarasını yaz.
+[Bağlam]   [1] (kaynak: rapor.pdf s.3) ...metin...
+           [2] (kaynak: rapor.pdf s.7) ...metin...
+[Soru]     {kullanıcının sorusu}</pre>
+<p>Üç şey promptta <b>açıkça</b> yazılmalı: <b>(a)</b> sadece bağlamı kullan, <b>(b)</b> bilmiyorsan bilmediğini söyleme izni, <b>(c)</b> kaynak gösterme zorunluluğu. Üçünden biri eksikse model boşluğu uydurmayla doldurur.</p>
+
+<h4>Yapılandırılmış veri gerekiyorsa</h4>
+<p>Modelden serbest metin isteyip regex ile ayıklamaya çalışmak kırılgandır. Doğrusu: <b>JSON şeması ver, structured output kullan.</b> Model şemaya uymak zorunda kalır, ayrıştırma kodu ortadan kalkar.</p>
+
+<h3>③ Karar noktaları</h3>
+<table class="wide">
+  <tr><th>Karar</th><th>Kural</th></tr>
+  <tr><td>RAG mi fine-tune mı?</td><td><b>Bilgi</b> eklemek → RAG. <b>Format / ton / davranış</b> öğretmek → fine-tune. Fine-tune ile bilgi enjekte etmek pahalı, güncellenemez ve kaynak gösteremez.</td></tr>
+  <tr><td>Kaç chunk gönderilir?</td><td>3–5. Fazlası maliyeti artırır ve <b>"lost in the middle"</b> etkisiyle ortadaki bilgiyi kaybettirir.</td></tr>
+  <tr><td>Temperature?</td><td>Bilgi çıkarma / soru-cevap → <b>0–0.2</b>. Yaratıcı yazım → 0.7+.</td></tr>
+  <tr><td>Lokal mi API mi?</td><td>Veri dışarı çıkamıyorsa lokal (Ollama vb.). Kalite ve hız öncelikliyse API.</td></tr>
+  <tr><td>Streaming?</td><td>Kullanıcı bekliyorsa evet. Toplu işlemede gereksiz.</td></tr>
+</table>
+
+<h3>④ Tuzaklar</h3>
+<div class="trap">
+<ul>
+  <li>"Sadece bağlamı kullan" demeyi atlamak → model kendi ezberinden cevap verir, kaynakla çelişir.</li>
+  <li>"Bilmiyorum" iznini vermemek → model her koşulda bir cevap üretmek zorunda kalır ve uydurur.</li>
+  <li>Kaynak istememek → cevap doğrulanamaz, denetlenemez hale gelir.</li>
+  <li>Çok fazla chunk göndermek → ortadaki bilgi kaybolur, maliyet artar, kalite <i>düşer</i>.</li>
+  <li>Konuşma geçmişini prompta koymayı unutmak → arayüzde geçmiş görünür ama model hatırlamıyordur.</li>
+  <li>Temperature'ı yüksek bırakmak → aynı soru her seferinde farklı cevap, hata ayıklanamaz.</li>
+</ul>
+</div>
+
+<h3>Kontrol yöntemi</h3>
+<div class="check">
+<ol>
+  <li><b>Negatif test:</b> bağlamda kesinlikle olmayan bir şey sor. Model "bilmiyorum" diyor mu, uyduruyor mu?</li>
+  <li>Cevaptaki her iddianın gösterilen kaynakta gerçekten olup olmadığını elle doğrula.</li>
+  <li>Aynı soruyu 3 kez sor. Cevaplar çok farklıysa temperature yüksek.</li>
+</ol>
+</div>
+
+<h3>Mülakat soruları</h3>
+<div class="qa">
+<ol>
+  <li>RAG ile fine-tune arasında nasıl seçim yaparsın?</li>
+  <li>Hallucination'ı azaltmak için promptta hangi üç şeyi mutlaka yazarsın?</li>
+  <li>Daha çok bağlam vermek neden kaliteyi düşürebilir?</li>
+  <li>Modelden JSON almanın doğru yolu nedir, neden regex kullanılmaz?</li>
+</ol>
+</div>
+</div>
+
+
+<!-- =================== SAYFA 5 =================== -->
+<div class="page">
+<h2><span class="no">Sayfa 5</span>Değerlendirme (Evaluation)</h2>
+
+<h3>① Bu nedir</h3>
+<ul>
+  <li><b>Golden set:</b> elle hazırlanmış <i>soru + doğru cevap + doğru kaynak</i> listesi. Değerlendirmenin temeli.</li>
+  <li><b>Recall@k:</b> doğru chunk, ilk k sonucun içinde mi? Retrieval'ın temel metriği.</li>
+  <li><b>MRR:</b> doğru sonuç kaçıncı sıradaydı? Sıranın tersinin ortalaması. Üstte olmayı ödüllendirir.</li>
+  <li><b>nDCG:</b> sıralamanın genel kalitesi.</li>
+  <li><b>Faithfulness:</b> cevap, verilen bağlama sadık mı? (uydurma var mı)</li>
+  <li><b>Answer relevancy:</b> cevap soruyu gerçekten karşılıyor mu?</li>
+  <li><b>Context precision / recall:</b> getirilen bağlam ne kadar isabetli / ne kadar eksiksiz?</li>
+  <li><b>LLM-as-judge:</b> cevabı başka bir LLM'e puanlatmak. Ölçeklenir ama kusurludur.</li>
+</ul>
+
+<h3>② Nasıl yapılır</h3>
+<pre>1. 30-50 soruluk golden set kur (gerçek kullanıcı sorularından türet)
+2. Her soru için doğru chunk'ı elle işaretle
+3. İKİ AYRI ölçüm yap:
+     a) Retrieval  → Recall@k, MRR
+     b) Generation → faithfulness, answer relevancy
+4. TEK bir değişkeni değiştir → tekrar ölç → karşılaştır</pre>
+<p><b>Sıra önemli:</b> önce retrieval'ı ölç. Doğru chunk hiç gelmiyorsa prompt'u iyileştirmek boşa emektir — LLM elinde olmayan bilgiyi üretemez. Bu ayrım, RAG hata ayıklamanın en önemli alışkanlığıdır.</p>
+<p>Hazır araçlar: <b>RAGAS</b>, <b>DeepEval</b> bu metrikleri hazır verir. Ama küçük bir golden set + Recall@k'yi elle hesaplamak bile hiç ölçmemekten kat kat iyidir.</p>
+
+<h3>③ Karar noktaları</h3>
+<table class="wide">
+  <tr><th>Karar</th><th>Kural</th></tr>
+  <tr><td>Nereden başlanır?</td><td>Retrieval metriklerinden. Hataların çoğu orada.</td></tr>
+  <tr><td>Kaç soru yeter?</td><td>30–50 ile başla. Az ama gerçek sorular, çok ama uydurma sorulardan iyidir.</td></tr>
+  <tr><td>LLM-as-judge güvenilir mi?</td><td><b>Yön verici, mutlak değil.</b> Trend takibi için iyi, tek karar mercii olarak kötü.</td></tr>
+  <tr><td>Ne zaman ölçülür?</td><td>Her değişiklikten önce ve sonra. Baseline olmadan "iyileştirdim" denemez.</td></tr>
+</table>
+
+<h3>④ Tuzaklar</h3>
+<div class="trap">
+<ul>
+  <li><b>"Gözle bakıyorum, iyi görünüyor"</b> → bu ölçüm değil. En yaygın ve en pahalı hata.</li>
+  <li>Aynı anda 3 şey değiştirip iyileşmeyi birine atfetmek → hangisinin işe yaradığını asla bilemezsin.</li>
+  <li>Golden set'i sistemin kendi çıktısından üretmek → sistem kendi kendini onaylar, hatalar görünmez.</li>
+  <li>LLM-as-judge önyargıları: <b>uzun</b> cevabı ve <b>ilk sıradaki</b> seçeneği kayırır. Sıraları karıştır.</li>
+  <li>Sadece cevap kalitesini ölçüp retrieval'ı ölçmemek → sorunun nerede olduğunu bulamazsın.</li>
+</ul>
+</div>
+
+<h3>Kontrol yöntemi</h3>
+<div class="check">
+<ol>
+  <li>Baseline skorunu <b>yaz ve sakla</b>. Her değişikliği ona karşı ölç.</li>
+  <li>Bir değişiklik metriği düşürüyorsa geri al — sezgiye değil sayıya güven.</li>
+  <li>Metrik iyileşti ama kullanıcı memnun değilse golden set'in gerçek kullanımı temsil etmiyor demektir.</li>
+</ol>
+</div>
+
+<h3>Mülakat soruları</h3>
+<div class="qa">
+<ol>
+  <li>RAG sisteminin iyileştiğini nasıl kanıtlarsın?</li>
+  <li>Retrieval ve generation hatalarını nasıl ayırt edersin? Hangisini önce ölçersin?</li>
+  <li>Recall@k ve MRR arasındaki fark ne?</li>
+  <li>LLM-as-judge'ın bilinen önyargıları neler, nasıl azaltırsın?</li>
+</ol>
+</div>
+</div>
+
+
+<!-- =================== SAYFA 6 =================== -->
+<div class="page">
+<h2><span class="no">Sayfa 6</span>Production'a Taşıma</h2>
+
+<h3>① Bu nedir</h3>
+<ul>
+  <li><b>API katmanı:</b> sistemi HTTP servisine dönüştürmek (FastAPI). Başka uygulamaların tüketebilmesi için.</li>
+  <li><b>Bağımlılık yönetimi:</b> paket sürümlerini kilitlemek, böylece proje başka makinede de aynı şekilde kurulsun.</li>
+  <li><b>Gözlemlenebilirlik:</b> log, gecikme, token maliyeti, "hangi chunk'lar geldi" kaydı.</li>
+  <li><b>Sır yönetimi:</b> API anahtarlarını koddan ve istemciden ayırmak.</li>
+  <li><b>Idempotency:</b> aynı işi iki kez yapmamak (aynı dosyayı tekrar indekslememek).</li>
+  <li><b>Cache:</b> tekrar eden hesaplamayı (embedding, model yükleme) bir kez yapmak.</li>
+</ul>
+
+<h3>② Nasıl yapılır</h3>
+<pre>UI / başka servis
+      │  HTTP
+      ▼
+API (FastAPI)  ──→ retrieval ──→ LLM ──→ cevap + kaynaklar
+      │
+      └─→ log: soru, dönen chunk kimlikleri, süre, token sayısı</pre>
+<ul>
+  <li>Embedding modelini ve index'i <b>uygulama açılışında bir kez</b> yükle, her istekte değil.</li>
+  <li><code>requirements.txt</code> gerçekten kurulu sürümleri yansıtmalı. Yansıtmazsa proje başka makinede kurulmaz.</li>
+  <li>Cevabı <b>her zaman kaynaklarıyla</b> döndür. Kaynaksız cevap denetlenemez.</li>
+  <li>Streaming ile ilk token'ı erken gönder — toplam süre aynı olsa bile kullanıcı deneyimi değişir.</li>
+  <li>Kullanıcıya 👍/👎 koy. Bu, golden set'ini büyütecek en değerli veri kaynağıdır.</li>
+</ul>
+
+<h3>③ Karar noktaları</h3>
+<table class="wide">
+  <tr><th>Karar</th><th>Kural</th></tr>
+  <tr><td>Streamlit mi API mi?</td><td>Hızlı demo / iç kullanım → Streamlit. Başka sistem tüketecekse veya ölçeklenecekse → API.</td></tr>
+  <tr><td>Ne loglanır?</td><td>Soru, dönen chunk kimlikleri, gecikme, token sayısı, kullanıcı geri bildirimi. <b>Ham metni değil kimliği logla</b> (gizlilik + boyut).</td></tr>
+  <tr><td>Sırlar nerede tutulur?</td><td>Sunucu tarafı ortam değişkeni. <b>İstemci bundle'ına asla girmez.</b></td></tr>
+  <tr><td>İş mantığı nerede çalışır?</td><td>Sunucuda. Tarayıcıda çalışan çıkarım mantığı test edilemez, sürümlenemez, mevcut veriye yeniden uygulanamaz.</td></tr>
+</table>
+
+<h3>④ Tuzaklar</h3>
+<div class="trap">
+<ul>
+  <li><b>API anahtarını frontend ortam değişkenine koymak</b> (ör. <code>VITE_*</code>, <code>NEXT_PUBLIC_*</code>) → derlenmiş bundle'a gömülür, tarayıcıdan herkes okur. Sunucu tarafı proxy şart.</li>
+  <li><code>requirements.txt</code> ile kurulu sürümlerin uyuşmaması → "bende çalışıyordu" sınıfı hatalar.</li>
+  <li>Modeli her istekte yeniden yüklemek → gecikme onlarca kat artar.</li>
+  <li>Log tutmamak → kullanıcı "yanlış cevap verdi" dediğinde hangi chunk'ların geldiğini bilemezsin, hatayı bulamazsın.</li>
+  <li>Pickle tabanlı index'i güvenilmeyen kaynaktan yüklemek → pickle açmak <b>kod çalıştırmaktır</b>. Sadece kendi ürettiğin index'i yükle.</li>
+  <li>Ham metni tam olarak saklamamak (kırpmak) → modeli/chunk stratejisini değiştirdiğinde yeniden işleyemezsin.</li>
+</ul>
+</div>
+
+<h3>Kontrol yöntemi</h3>
+<div class="check">
+<ol>
+  <li>Temiz bir sanal ortamda <code>pip install -r requirements.txt</code> çalıştır → proje kuruluyor mu?</li>
+  <li>Derlenmiş frontend çıktısında API anahtarını ara → bulunuyorsa sızmış demektir.</li>
+  <li>Bir isteğin loguna bakarak "neden bu cevabı verdi" sorusunu cevaplayabiliyor musun?</li>
+</ol>
+</div>
+
+<h3>Mülakat soruları</h3>
+<div class="qa">
+<ol>
+  <li>API anahtarını frontend'de tutmak neden güvensiz? Doğru yaklaşım ne?</li>
+  <li>Bir RAG sisteminde ne loglarsın ve neden?</li>
+  <li>İş mantığını neden sunucu tarafında tutarsın?</li>
+  <li>Pickle tabanlı bir index yüklemenin riski nedir?</li>
+</ol>
+</div>
+
+<div class="obs">
+<span class="tag">Gözlem — ezberlemek için değil</span>
+<p>Bir projede <code>requirements.txt</code> <code>langchain==0.1.0</code> yazıyordu ama kurulu sürüm <b>0.2.17</b>'ydi (sentence-transformers 2.3.1 yazıyordu, kurulu olan 5.1.2). Yani o dosyayla proje başka bir makinede kurulamazdı. Ayrı bir projede OCR API anahtarı <code>VITE_</code> önekli bir değişkende tutuluyordu — bu, anahtarın tarayıcıya indirilen bundle içinde açıkça yer alması anlamına gelir.</p>
+</div>
+</div>
+
+</body>
+</html>

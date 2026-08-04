@@ -1,0 +1,47 @@
+# --- Sanal ortam ---
+# pyproject.toml'dan birebir yeniden üretilebilir; repoda yeri yok.
+.venv/
+venv/
+env/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Sırlar ---
+# Ortam değişkenleri asla repoya girmez.
+.env
+.env.*
+!.env.example
+
+# --- Veri ---
+# İki ayrı sebeple dışarıda:
+#   1. data/raw/  -> kaynak dokümanlar. Bunlar kişisel/kurumsal içerik
+#      olabilir ve public bir repoda yayınlanmış olurlar.
+#   2. data/index/-> ingestion çıktısı. Üretilebilir olduğu için repoda
+#      tutmak anlamsız; ayrıca binary FAISS dosyaları diff'lenemez ve
+#      git geçmişini şişirir.
+data/
+
+# --- Editör / OS ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+
+# --- Model önbelleği ---
+# HuggingFace modelleri ~/.cache altında; yanlışlıkla proje içine
+# indirilirse repoya girmesin.
+models/
+*.bin
+*.safetensors
+
+# --- Claude Code oturum ayarlari (kisisel izin listesi, proje ayari degil) ---
+.claude/

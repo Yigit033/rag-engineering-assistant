@@ -1,0 +1,103 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "rag-assistant"
+version = "0.1.0"
+description = "Türkçe teknik dokümanlar için kaynak gösteren RAG asistanı"
+readme = "README.md"
+requires-python = ">=3.11"
+
+# ---------------------------------------------------------------------------
+# Bağımlılıklar bilinçli olarak AZ tutuldu.
+# LangChain gibi bir orkestrasyon framework'ü KULLANILMIYOR: bu projede
+# framework'ün sağladığı soyutlamaların yerine kendi Protocol'lerimiz var.
+# Kazanç: deprecation döngüsü yok, davranış tamamen öngörülebilir, test kolay.
+# ---------------------------------------------------------------------------
+dependencies = [
+    # Doküman okuma
+    "pypdf>=5.1.0",
+    # Embedding + reranking (cross-encoder)
+    "sentence-transformers>=3.3.0",
+    # Vektör arama
+    "faiss-cpu>=1.9.0",
+    "numpy>=1.26",
+    # Sparse (keyword) arama
+    "rank-bm25>=0.2.2",
+    # Yapılandırma
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    # LLM ve HTTP (Ollama ile doğrudan HTTP konuşuyoruz — ekstra SDK yok)
+    "httpx>=0.27",
+    # API
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    # Yapılandırılmış loglama
+    "structlog>=24.4",
+]
+
+[project.optional-dependencies]
+ui = ["streamlit>=1.40"]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.8",
+    "mypy>=1.13",
+    "types-requests",
+]
+
+[project.scripts]
+# Komut satırı giriş noktaları — "python şu dosyayı çalıştır" yerine
+# kurulu bir komut. Paketin nasıl kullanılacağını sözleşmeye bağlar.
+rag-ingest = "rag_assistant.cli:ingest"
+rag-ask = "rag_assistant.cli:ask"
+rag-eval = "rag_assistant.cli:evaluate"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rag_assistant"]
+
+# ---------------------------------------------------------------------------
+# Kod kalitesi araçları: yapılandırma da kodun parçasıdır.
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",   # pycodestyle
+    "F",        # pyflakes
+    "I",        # isort (import sıralama)
+    "B",        # bugbear (yaygın hata kalıpları)
+    "UP",       # pyupgrade (modern sözdizimi)
+    "SIM",      # sadeleştirme
+    "RET",      # return kalıpları
+    "PTH",      # os.path yerine pathlib
+    "TID",      # tidy imports
+    "ANN",      # eksik tip ipuçları
+]
+ignore = [
+    "ANN101",   # self'e annotation gerekmez
+    "ANN102",   # cls'e annotation gerekmez
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["ANN"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unreachable = true
+# Tip ipucu göndermeyen üçüncü parti kütüphaneler için gevşetme
+[[tool.mypy.overrides]]
+module = ["faiss.*", "rank_bm25.*", "sentence_transformers.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+markers = [
+    "slow: gerçek model yükleyen testler (varsayılan koşuda atlanabilir)",
+]
