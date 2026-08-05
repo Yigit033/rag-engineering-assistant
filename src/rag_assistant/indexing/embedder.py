@@ -69,7 +69,31 @@ class SentenceTransformerEmbedder:
         from sentence_transformers import SentenceTransformer
 
         logger.info("embedder.loading", model=self._model_name, device=self._device)
-        model = SentenceTransformer(self._model_name, device=self._device)
+
+        # ÖNCE YEREL ÖNBELLEKTEN YÜKLEMEYİ DENE.
+        #
+        # Neden: model önbellekte olmasına rağmen sentence-transformers her
+        # açılışta HuggingFace Hub'a sorar. Hub yavaşsa veya hız sınırına
+        # takılırsa yükleme BAŞARISIZ olur — yani tamamen yerel çalışan bir
+        # servis, dış bir servisin erişilebilirliğine bağımlı hale gelir.
+        # Bu fiilen yaşandı: model dakikalar önce yüklenmişken sonraki
+        # denemede "Unrecognized processing class" hatası alındı; sebep
+        # eksik model dosyası değil, Hub'a ulaşılamamasıydı.
+        #
+        # İlk indirmeden sonra ağ bağımlılığı tamamen ortadan kalkar.
+        try:
+            model = SentenceTransformer(
+                self._model_name, device=self._device, local_files_only=True
+            )
+            logger.debug("embedder.loaded_from_cache", model=self._model_name)
+        except Exception as exc:  # noqa: BLE001 - önbellekte yoksa indirmeye düş
+            logger.info(
+                "embedder.cache_miss",
+                model=self._model_name,
+                reason=str(exc)[:120],
+                action="Hub'dan indiriliyor (ilk çalıştırma)",
+            )
+            model = SentenceTransformer(self._model_name, device=self._device)
 
         # Modelin kendi limiti (bge-m3'te 8192) genelde bizim istediğimizden
         # büyüktür. Bilinçli olarak kısıtlıyoruz: çok uzun chunk arama

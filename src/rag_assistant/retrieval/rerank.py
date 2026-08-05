@@ -91,7 +91,14 @@ class CrossEncoderReranker:
 
         logger.info("reranker.loading", model=self._model_name, device=self._device)
         try:
-            model = CrossEncoder(self._model_name, device=self._device)
+            # Embedder ile aynı gerekçe: önce yerel önbellek, sonra Hub.
+            # Çalışma zamanında dış bir servise bağımlı olmamak için.
+            try:
+                model = CrossEncoder(
+                    self._model_name, device=self._device, local_files_only=True
+                )
+            except Exception:  # noqa: BLE001 - önbellekte yoksa indir
+                model = CrossEncoder(self._model_name, device=self._device)
         except Exception as exc:  # noqa: BLE001 - hangi hata olursa olsun servis düşmemeli
             logger.warning(
                 "reranker.disabled", reason=str(exc)[:200], model=self._model_name

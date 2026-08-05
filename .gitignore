@@ -29,6 +29,12 @@ dist/
 #      git geçmişini şişirir.
 data/
 
+# İSTİSNA: golden set üretilmiş veri DEĞİL, mühendislik emeğinin ürünüdür.
+# Sistemin kalitesini ölçen tek referanstır; kaybolursa geçmiş koşularla
+# karşılaştırma yapılamaz. Bu yüzden sürüm kontrolüne girer.
+!data/eval/
+!data/eval/golden_set.json
+
 # --- Editör / OS ---
 .vscode/
 .idea/
