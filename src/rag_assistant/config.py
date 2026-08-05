@@ -125,7 +125,13 @@ class RetrievalSettings(BaseModel):
     """
 
     fetch_k: int = 20  # her retriever'dan çekilecek aday
-    top_k: int = 5  # LLM'e gidecek nihai chunk
+    # top_k = 3, ÖLÇÜMLE seçildi (bkz. generation/prompts/README.md).
+    # 17 soruluk golden set üzerinde 5 → 3 değişimi:
+    #   atıf doğruluğu %66.7 → %91.7 · olgu doğruluğu %91.7 → %100
+    #   geçme oranı    %70.6 → %88.2 · Recall@k %100 (KAYIP YOK)
+    # Sebep: küçük model 5 kaynak numarasını güvenilir takip edemiyor;
+    # daha az ama isabetli bağlam daha iyi sonuç veriyor ("lost in the middle").
+    top_k: int = 3  # LLM'e gidecek nihai chunk
     rrf_k: int = 60  # RRF yumuşatma sabiti (literatürdeki ampirik değer)
 
     use_dense: bool = True

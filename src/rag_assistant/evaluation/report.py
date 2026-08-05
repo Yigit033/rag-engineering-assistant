@@ -74,6 +74,13 @@ def _diagnose(s: EvaluationSummary) -> list[str]:
             "top_k'yı düşürmeyi veya reranker eşiği koymayı dene."
         )
 
+    if s.citation_accuracy < 0.9:
+        notes.append(
+            f"ATIF YANLIŞ ({s.citation_accuracy:.0%} doğru). Cevap doğru olsa bile "
+            "yanlış sayfa gösteriliyor; denetleyen kişi bilgiyi bulamaz. Bağlamdaki "
+            "numaralandırma prompt'ta daha belirgin vurgulanmalı."
+        )
+
     if s.citation_rate < 0.9:
         notes.append(
             f"ATIF EKSİK ({s.citation_rate:.0%}). Atıfsız cevap doğrulanamaz; "
@@ -138,7 +145,8 @@ def render_report(summary: EvaluationSummary) -> str:
     out.append("  2) GENERATION  (bağlam doğru kullanıldı mı?)")
     out.append(_metric("Çekimserlik doğruluğu", summary.abstention_accuracy))
     out.append(_metric("Uydurma oranı (düşük iyi)", summary.hallucination_rate, invert=True))
-    out.append(_metric("Atıf oranı", summary.citation_rate))
+    out.append(_metric("Atıf oranı (var mı)", summary.citation_rate))
+    out.append(_metric("Atıf doğruluğu (doğru mu)", summary.citation_accuracy))
     out.append(_metric("Olgu doğruluğu", summary.fact_accuracy))
     out.append("")
 
@@ -166,6 +174,8 @@ def render_report(summary: EvaluationSummary) -> str:
                 reasons.append(f"eksik olgu: {r.missing_facts}")
             if not r.cited:
                 reasons.append("atıf yok")
+            if r.wrong_citations:
+                reasons.append(f"yanlış kaynağa atıf: {r.wrong_citations}")
             if not r.hit and r.question.kind is QuestionKind.ANSWERABLE:
                 reasons.append("doğru kaynak hiç getirilmedi")
             for reason in reasons:

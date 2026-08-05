@@ -139,6 +139,17 @@ class QuestionResult:
     forbidden_present: bool
     forbidden_found: list[str]
 
+    # Atıfların DOĞRU kaynağı gösterip göstermediği.
+    #
+    # NEDEN AYRI BİR ÖLÇÜM: atıfın VARLIĞI ile DOĞRULUĞU farklı şeylerdir.
+    # Model doğru cevabı verip yanlış sayfayı gösterebilir (ölçüldü: "65M USD"
+    # cevabı doğruydu ama s.3 yerine s.2'ye atıf yapıldı).
+    # Yanlış kaynağa yapılan atıf, atıfsız cevaptan DAHA KÖTÜDÜR: doğrulanabilir
+    # görünür ama denetleyen kişi gösterilen yerde bilgiyi bulamaz ve sisteme
+    # olan güven tamamen kaybolur.
+    citations_correct: bool = True
+    wrong_citations: list[str] = field(default_factory=list)
+
     @property
     def abstention_correct(self) -> bool:
         """
@@ -187,6 +198,7 @@ class QuestionResult:
             and not self.hallucinated
             and self.facts_present
             and self.cited
+            and self.citations_correct
         )
 
 
@@ -231,7 +243,13 @@ class EvaluationSummary:
 
     @property
     def citation_rate(self) -> float:
+        """Atıf VAR mı? (varlık)"""
         return self._mean(float(r.cited) for r in self._answerable)
+
+    @property
+    def citation_accuracy(self) -> float:
+        """Atıflar DOĞRU kaynağı mı gösteriyor? (doğruluk — varlıktan farklı)"""
+        return self._mean(float(r.citations_correct) for r in self._answerable)
 
     @property
     def fact_accuracy(self) -> float:
@@ -278,6 +296,7 @@ class EvaluationSummary:
                 "abstention_accuracy": round(self.abstention_accuracy, 4),
                 "hallucination_rate": round(self.hallucination_rate, 4),
                 "citation_rate": round(self.citation_rate, 4),
+                "citation_accuracy": round(self.citation_accuracy, 4),
                 "fact_accuracy": round(self.fact_accuracy, 4),
             },
             "overall": {

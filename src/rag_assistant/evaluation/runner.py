@@ -93,6 +93,19 @@ def evaluate_question(
     facts_present, missing = contains_all(answer.text, question.must_contain)
     forbidden_present, forbidden = contains_any(answer.text, question.must_not_contain)
 
+    # ATIFLAR DOĞRU KAYNAĞI MI GÖSTERİYOR?
+    # Atıf varlığı yeterli değil: model doğru cevabı verip yanlış sayfaya
+    # atıf yapabilir. Bu, doğrulanabilir GÖRÜNEN ama denetlendiğinde
+    # tutmayan bir cevap üretir — güveni tamamen yıkan hata biçimi.
+    wrong_citations: list[str] = []
+    if question.expected_sources:
+        for citation in answer.citations:
+            src = citation.source
+            if not any(
+                exp.matches(src.file_name, src.page) for exp in question.expected_sources
+            ):
+                wrong_citations.append(f"[{citation.marker}] {src.label()}")
+
     result = QuestionResult(
         question=question,
         answer=answer,
@@ -105,6 +118,8 @@ def evaluate_question(
         missing_facts=missing,
         forbidden_present=forbidden_present,
         forbidden_found=forbidden,
+        citations_correct=not wrong_citations,
+        wrong_citations=wrong_citations,
     )
 
     logger.info(
@@ -117,6 +132,7 @@ def evaluate_question(
         abstained=answer.abstained,
         hallucinated=result.hallucinated,
         citations=len(answer.citations),
+        wrong_citations=len(wrong_citations),
         ms=answer.latency_ms,
     )
     return result
@@ -210,6 +226,7 @@ def save_summary(summary: EvaluationSummary, directory: Path) -> Path:
             "recall_at_k": round(r.recall_at_k, 4),
             "first_relevant_rank": r.first_relevant_rank,
             "missing_facts": r.missing_facts,
+            "wrong_citations": r.wrong_citations,
             "forbidden_found": r.forbidden_found,
             "latency_ms": r.answer.latency_ms,
         }

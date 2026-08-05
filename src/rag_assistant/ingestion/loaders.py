@@ -18,6 +18,7 @@ TEMEL İLKE: Metin temizlerken YAPIYI KORU.
 from __future__ import annotations
 
 import hashlib
+import logging
 import re
 import unicodedata
 from pathlib import Path
@@ -29,6 +30,15 @@ from rag_assistant.domain.models import LoadedDocument, LoadedPage
 from rag_assistant.observability import get_logger
 
 logger = get_logger(__name__)
+
+# pypdf bozuk PDF'lerde onlarca satır iç uyarı basar
+# ("incorrect startxref pointer", "Error -3 while decompressing data" ...).
+# Bunları BASTIRIYORUZ çünkü:
+#   * Aynı bilgiyi kendimiz zaten yapılandırılmış biçimde raporluyoruz
+#     (page.extract_failed / document.loaded / no_text_layer).
+#   * Kütüphanenin ham gürültüsü, bizim anlamlı çıktımızı boğuyor.
+# ERROR seviyesi açık bırakılır: gerçek bir kütüphane hatası hâlâ görünür.
+logging.getLogger("pypdf").setLevel(logging.ERROR)
 
 
 class DocumentLoadError(RuntimeError):
