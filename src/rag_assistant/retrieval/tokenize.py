@@ -27,21 +27,8 @@ TÜRKÇE'DE ÜÇ TUZAK:
 from __future__ import annotations
 
 import re
-import unicodedata
 
-# Türkçe büyük harfler → küçük karşılıkları.
-# `str.lower()`'a bırakılırsa 'İ' bozulur, 'I' yanlış eşlenir.
-_TR_LOWER = str.maketrans(
-    {
-        "İ": "i",
-        "I": "ı",
-        "Ş": "ş",
-        "Ğ": "ğ",
-        "Ü": "ü",
-        "Ö": "ö",
-        "Ç": "ç",
-    }
-)
+from rag_assistant.text import tr_lower
 
 # Alfanümerik diziler. Türkçe harfler açıkça listelenmeli — `\w` yeterli
 # görünse de sınıf davranışı yerel ayara/derlemeye göre değişebilir.
@@ -79,15 +66,11 @@ _SUFFIXES: tuple[str, ...] = tuple(
 _MIN_STEM_LENGTH = 4
 
 
-def normalize(text: str) -> str:
-    """
-    Türkçe-güvenli küçük harfe çevirme + Unicode NFC.
-
-    NFC neden: aynı karakter ('ğ') birleşik tek kod noktası veya
-    'g + birleşen aksan' olarak kodlanmış olabilir. Normalize edilmezse
-    aynı kelime iki farklı bayt dizisi olur ve hiç eşleşmez.
-    """
-    return unicodedata.normalize("NFC", text).translate(_TR_LOWER).lower()
+# Türkçe harf katlama tek bir yerde tanımlıdır (rag_assistant.text).
+# Burada yeniden yazmıyoruz: aynı mantığın iki kopyası, birini düzeltip
+# diğerini unutmanın garantisidir. (Bu hata bu projede fiilen yaşandı:
+# tokenize.py doğru yapıyordu, answerer.py casefold() kullanıp bozuluyordu.)
+normalize = tr_lower
 
 
 # Kırpma en fazla bu kadar tur döner. Uzunluk her turda azaldığı için

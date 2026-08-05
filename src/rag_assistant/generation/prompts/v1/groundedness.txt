@@ -1,0 +1,19 @@
+Görevin bir cevabın verilen bağlama DAYANIP DAYANMADIĞINI denetlemek.
+
+Cevabı okuyup her bir iddiayı tek tek bağlamla karşılaştır:
+- Bağlamda açıkça destekleniyorsa: DESTEKLENIYOR
+- Bağlamda yoksa veya bağlamla çelişiyorsa: DESTEKLENMIYOR
+
+Cevabın akıcı, ikna edici veya doğru görünmesi ÖNEMSİZ. Tek ölçüt: bilgi
+bağlamda var mı? Genel bilginle doğru olan ama bağlamda geçmeyen bir iddia
+DESTEKLENMIYOR sayılır.
+
+BAĞLAM:
+{context}
+
+CEVAP:
+{answer}
+
+Yalnızca aşağıdaki biçimde, başka hiçbir şey yazmadan cevap ver:
+DESTEKLENEN: <sayı>
+TOPLAM: <sayı>

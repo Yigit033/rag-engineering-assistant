@@ -24,6 +24,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -150,18 +151,48 @@ class LLMSettings(BaseModel):
     """
     LLM ayarları.
 
+    `provider`: TEK BİR SAĞLAYICIYA KİLİTLENMEMEK İÇİN.
+      "ollama"        → yerel Ollama'nın kendi API'si
+      "openai_compat" → OpenAI-uyumlu /v1/chat/completions konuşan HERHANGİ
+                        bir uç: OpenAI, Groq, Together, OpenRouter, vLLM,
+                        LM Studio — ve Ollama'nın kendi /v1 ucu.
+      Aynı `LLM` protokolünü sağladıkları için geçiş TEK SATIR yapılandırma.
+      Dizüstünde küçük yerel model, sunucuda büyük bulut modeli — kod aynı.
+
     `temperature = 0.0`: bilgi çıkarma işlerinde varsayılan budur.
       Yüksek temperature aynı soruya her seferinde farklı cevap üretir →
       hata ayıklanamaz ve değerlendirilemez bir sistem.
+
+    `api_key_env`: anahtarın KENDİSİ değil, anahtarı taşıyan ortam
+      değişkeninin ADI tutulur. Yapılandırma nesnesi hiçbir zaman sır
+      içermez; loglansa, hata izine girse veya diske yazılsa bile sızmaz.
     """
 
+    provider: Literal["ollama", "openai_compat"] = "ollama"
     base_url: str = "http://localhost:11434"
-    model: str = "llama3"
+    # gemma3:4b — DÜŞÜNMEYEN (non-reasoning) çok dilli model.
+    # Ölçüm: aynı soruda gemma3:4b 10.4 sn, qwen3:4b 25.2 sn sürdü. Fark
+    # reasoning modellerinin cevaptan önce uzun bir iç monolog üretmesinden
+    # geliyor. Kaynak göstererek özetleme işi zincirleme akıl yürütme
+    # gerektirmediği için bu yük saf kayıptır. Ayrıca reasoning izi atıf
+    # ayrıştırmasını kirletme riski taşır (bkz. llm.strip_reasoning).
+    model: str = "gemma3:4b"
     temperature: float = Field(default=0.0, ge=0.0, le=2.0)
-    max_tokens: int = 1024
-    timeout_seconds: float = 120.0
+    # DÜŞÜNEN MODEL PAYI: 2026 modellerinin çoğu cevaptan önce bir <think>
+    # bloğu üretir ve bu blok token bütçesinden harcanır. Bütçe düşük
+    # tutulursa tüm bütçe düşünmeye gider ve GÖRÜNÜR CEVAP BOŞ döner
+    # (ölçüldü: num_predict=20 ile cevap tamamen boş). Bu yüzden bütçe
+    # cevabın kendisi için gerekenden belirgin yüksek tutulur.
+    max_tokens: int = 2048
+    timeout_seconds: float = 180.0
     # Modelin bağlam penceresi. Ollama'ya num_ctx olarak geçer.
     context_window: int = 8192
+    # Sırrın kendisi değil, sırrı taşıyan ortam değişkeninin adı.
+    api_key_env: str = "RAG_LLM_API_KEY"
+    seed: int = 42
+    # Ollama modeli bu süre boyunca bellekte tutar. Boşaltırsa, bellek
+    # kısıtlı makinede embedder ile çakışma bir sonraki soruda geri gelir.
+    keep_alive: str = "30m"
 
 
 class GenerationSettings(BaseModel):
