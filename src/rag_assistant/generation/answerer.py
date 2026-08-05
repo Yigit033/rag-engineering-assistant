@@ -166,10 +166,20 @@ class GroundedAnswerer:
     # ------------------------------------------------------------------
     # Ana akış
     # ------------------------------------------------------------------
-    def answer(self, question: str) -> Answer:
+    def answer(self, question: str, *, top_k: int | None = None) -> Answer:
+        """
+        Soruyu cevapla.
+
+        `top_k` İSTEK BAŞINA geçilir, nesnede tutulan değeri DEĞİŞTİRMEZ.
+        Sebep: bu nesne eşzamanlı isteklerce paylaşılıyor. `self._top_k`'yı
+        istek içinde güncellemek klasik bir yarış koşulu (race condition)
+        olurdu — iki istek birbirinin ayarını ezerdi. İstek başına değişen
+        her parametre metot imzasına ait, nesne durumuna değil.
+        """
         started = time.perf_counter()
 
-        chunks = self._retriever.retrieve(question, self._top_k)
+        effective_top_k = top_k if top_k is not None else self._top_k
+        chunks = self._retriever.retrieve(question, effective_top_k)
 
         # SAVUNMA 1: bağlam yoksa modeli hiç çağırma.
         if not chunks and self._abstain_when_no_context:
@@ -257,14 +267,14 @@ class GroundedAnswerer:
         )
         return answer
 
-    def stream(self, question: str) -> Iterator[str]:
+    def stream(self, question: str, *, top_k: int | None = None) -> Iterator[str]:
         """
         Cevabı parça parça üret (arayüz için).
 
         Atıf doğrulama akış bittikten sonra yapılabilir; akış sırasında
         yapılamaz çünkü metnin tamamı henüz yoktur.
         """
-        chunks = self._retriever.retrieve(question, self._top_k)
+        chunks = self._retriever.retrieve(question, top_k if top_k is not None else self._top_k)
 
         if not chunks and self._abstain_when_no_context:
             yield self._abstain_phrase + "."

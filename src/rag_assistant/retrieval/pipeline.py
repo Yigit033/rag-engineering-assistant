@@ -52,6 +52,16 @@ class HybridRetriever:
         parts = "+".join(r.name for r in self._retrievers)
         return f"hybrid({parts}){'+rerank' if self._reranker else ''}"
 
+    @property
+    def reranker(self) -> Reranker | None:
+        """
+        Yapılandırılmış reranker (varsa).
+
+        `/ready` bunu okuyup gerçekten aktif olup olmadığını raporlar:
+        yapılandırmada açık olması, belleğe sığdığı anlamına gelmez.
+        """
+        return self._reranker
+
     def retrieve(self, query: str, k: int) -> list[ScoredChunk]:
         started = time.perf_counter()
 

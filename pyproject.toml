@@ -16,6 +16,8 @@ requires-python = ">=3.11"
 # Kazanç: deprecation döngüsü yok, davranış tamamen öngörülebilir, test kolay.
 # ---------------------------------------------------------------------------
 dependencies = [
+    # Kaynak (bellek) farkindaligi - reranker yuklemeden once bellek kontrolu
+    "psutil>=6.1",
     # Doküman okuma
     "pypdf>=5.1.0",
     # Embedding + reranking (cross-encoder)
