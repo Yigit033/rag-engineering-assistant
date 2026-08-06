@@ -21,7 +21,12 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from rag_assistant.domain.models import Answer, DocumentReport, IngestReport
+from rag_assistant.domain.models import (
+    Answer,
+    DocumentReport,
+    IngestReport,
+    StoredDocument,
+)
 
 
 class AskRequest(BaseModel):
@@ -164,6 +169,67 @@ class IngestResponse(BaseModel):
             failed_count=len(report.failed),
             needs_ocr_count=len(report.needs_ocr),
         )
+
+
+class DocumentOut(BaseModel):
+    """Kütüphanedeki bir doküman."""
+
+    file_name: str
+    status: str
+    size_bytes: int
+    page_count: int
+    chunk_count: int
+    # Bu iki alan türetilmiş ama BİLİNÇLİ olarak dışarı veriliyor:
+    # istemcinin `status` string'ini yorumlayıp aynı mantığı yeniden
+    # yazmasını istemiyoruz. Kural sunucuda kalır.
+    is_searchable: bool = Field(description="Aramaya dahil mi? (0 chunk = hayır)")
+    needs_ocr: bool = Field(description="Taranmış PDF — OCR gerekiyor")
+    processed_at: str | None = None
+    error: str | None = None
+
+    @classmethod
+    def from_domain(cls, doc: StoredDocument) -> DocumentOut:
+        return cls(
+            file_name=doc.file_name,
+            status=str(doc.status),
+            size_bytes=doc.size_bytes,
+            page_count=doc.page_count,
+            chunk_count=doc.chunk_count,
+            is_searchable=doc.is_searchable,
+            needs_ocr=doc.needs_ocr,
+            processed_at=doc.processed_at,
+            error=doc.error,
+        )
+
+
+class DocumentListResponse(BaseModel):
+    documents: list[DocumentOut]
+    total: int
+    searchable: int = Field(description="Aramaya gerçekten dahil olan doküman sayısı")
+    needs_ocr: int
+    index_vectors: int
+    disk_usage_bytes: int
+
+
+class UploadResponse(BaseModel):
+    """Yükleme sonucu."""
+
+    file_name: str = Field(description="Sunucunun kaydettiği TEMİZLENMİŞ ad")
+    size_bytes: int
+    indexed: bool = Field(description="Yükleme sonrası indeksleme yapıldı mı")
+    chunk_count: int = 0
+    status: str
+    needs_ocr: bool = False
+    # Aynı içerik başka bir adla zaten varsa uyarı. Engellemiyoruz ama
+    # bildiriyoruz: aynı bilgi arama sonuçlarında iki kez çıkar.
+    duplicate_of: str | None = None
+    warning: str | None = None
+
+
+class DeleteResponse(BaseModel):
+    file_name: str
+    removed_chunks: int
+    index_vectors: int
 
 
 class ComponentHealth(BaseModel):

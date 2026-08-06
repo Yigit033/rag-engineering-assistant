@@ -55,6 +55,7 @@ dev = [
 rag-ingest = "rag_assistant.cli:ingest"
 rag-ask = "rag_assistant.cli:ask"
 rag-eval = "rag_assistant.cli:evaluate"
+rag-docs = "rag_assistant.cli:documents"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/rag_assistant"]

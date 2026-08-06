@@ -306,3 +306,153 @@ def evaluate(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":  # pragma: no cover
     sys.exit(EXIT_USAGE)
+
+
+# ---------------------------------------------------------------------------
+# rag-docs
+# ---------------------------------------------------------------------------
+def documents(argv: list[str] | None = None) -> int:
+    """
+    Doküman kütüphanesini yönet.
+
+    API ile AYNI `DocumentLibrary` örneğini kullanır — güvenlik kontrolleri
+    (dosya adı temizleme, uzantı, boyut) tek yerde durur. CLI kendi
+    doğrulamasını yazsaydı biri eksik kalırdı.
+    """
+    parser = argparse.ArgumentParser(
+        prog="rag-docs", description="Kütüphanedeki dokümanları listele / sil / ekle."
+    )
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    p_list = sub.add_parser("list", help="Dokümanları listele")
+    p_list.add_argument("--json", action="store_true")
+
+    p_add = sub.add_parser("add", help="Dosya ekle (kopyalar ve indeksler)")
+    p_add.add_argument("path", type=Path, help="Eklenecek PDF")
+    p_add.add_argument("--no-index", action="store_true", help="Sadece kopyala, indeksleme")
+    p_add.add_argument("--overwrite", action="store_true")
+
+    p_del = sub.add_parser("delete", help="Doküman sil (chunk'ları dahil)")
+    p_del.add_argument("file_name")
+    p_del.add_argument("-y", "--yes", action="store_true", help="Onay sorma")
+
+    for p in (p_list, p_add, p_del):
+        p.add_argument("-v", "--verbose", action="store_true")
+
+    args = parser.parse_args(argv)
+    _bootstrap(verbose=getattr(args, "verbose", False))
+    settings = get_settings()
+
+    from rag_assistant.library import LibraryError
+
+    try:
+        # LLM gerekmez → ısıtma yok.
+        system = build_rag_system(settings, warm_llm=False)
+    except IndexCompatibilityError as exc:
+        return _fail(str(exc))
+
+    library = system.library
+
+    try:
+        if args.command == "list":
+            docs = library.list_documents()
+            if args.json:
+                print(
+                    json.dumps(
+                        [
+                            {
+                                "file_name": d.file_name,
+                                "status": str(d.status),
+                                "size_bytes": d.size_bytes,
+                                "pages": d.page_count,
+                                "chunks": d.chunk_count,
+                                "searchable": d.is_searchable,
+                                "needs_ocr": d.needs_ocr,
+                            }
+                            for d in docs
+                        ],
+                        ensure_ascii=False,
+                        indent=2,
+                    )
+                )
+                return EXIT_OK
+
+            if not docs:
+                print("\n  Kütüphane boş. `rag-docs add <dosya.pdf>` ile ekleyin.\n")
+                return EXIT_OK
+
+            print(f"\n  {len(docs)} doküman · index: {system.store.count} vektör\n")
+            print(f"  {'':<3}{'DOSYA':<44}{'DURUM':<16}{'SAYFA':>6}{'CHUNK':>7}{'BOYUT':>10}")
+            for d in docs:
+                mark = "✓" if d.is_searchable else ("!" if d.needs_ocr else "·")
+                size = f"{d.size_bytes / 1024:.0f} KB"
+                print(
+                    f"  {mark:<3}{d.file_name[:42]:<44}{str(d.status):<16}"
+                    f"{d.page_count:>6}{d.chunk_count:>7}{size:>10}"
+                )
+
+            ocr = [d for d in docs if d.needs_ocr]
+            if ocr:
+                print(
+                    f"\n  ! {len(ocr)} doküman aramaya DAHİL DEĞİL (taranmış PDF, OCR gerekli)"
+                )
+            print()
+            return EXIT_OK
+
+        if args.command == "add":
+            if not args.path.is_file():
+                return _fail(f"Dosya bulunamadı: {args.path}")
+
+            with args.path.open("rb") as f:
+                result = library.save_upload(
+                    args.path.name,
+                    iter(lambda: f.read(8192), b""),
+                    overwrite=args.overwrite,
+                )
+
+            print(f"\n  eklendi: {result.file_name} ({result.size_bytes / 1024:.0f} KB)")
+            if result.duplicate_of:
+                print(
+                    f"  ! aynı içerik '{result.duplicate_of}' adıyla zaten var — "
+                    "aynı bilgi sonuçlarda iki kez çıkabilir"
+                )
+
+            if args.no_index:
+                print("  (indekslenmedi — `rag-ingest` ile indeksleyin)\n")
+                return EXIT_OK
+
+            report = system.ingestion.run(library.raw_dir)
+            system.store.save(settings.paths.index_dir)
+            added = next(
+                (d for d in report.documents if d.file_name == result.file_name), None
+            )
+            if added and added.needs_ocr:
+                print("  ! metin katmanı yok (taranmış PDF) — aramaya DAHİL DEĞİL\n")
+            else:
+                print(
+                    f"  indekslendi: {added.chunk_count if added else 0} chunk · "
+                    f"index toplam {system.store.count}\n"
+                )
+            return EXIT_OK
+
+        if args.command == "delete":
+            doc = library.get(args.file_name)
+            if not args.yes:
+                print(
+                    f"\n  '{doc.file_name}' ve {doc.chunk_count} chunk'ı SİLİNECEK."
+                )
+                if input("  Onaylıyor musunuz? (e/h): ").strip().lower() not in ("e", "evet"):
+                    print("  İptal edildi.\n")
+                    return EXIT_OK
+
+            library.delete(doc.file_name)
+            print(f"\n  silindi: {doc.file_name} · index: {system.store.count} vektör\n")
+            return EXIT_OK
+
+    except LibraryError as exc:
+        return _fail(str(exc))
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("docs.failed")
+        return _fail(str(exc))
+
+    return EXIT_USAGE

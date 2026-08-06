@@ -38,7 +38,7 @@ from contextlib import asynccontextmanager
 from typing import Annotated
 
 import structlog
-from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 
@@ -47,16 +47,27 @@ from rag_assistant.config import Settings, get_settings
 from rag_assistant.generation.factory import LLMConfigurationError
 from rag_assistant.generation.llm import LLMError, LLMUnavailableError
 from rag_assistant.indexing.store import IndexCompatibilityError
+from rag_assistant.library import (
+    DocumentExistsError,
+    DocumentNotFoundError,
+    FileTooLargeError,
+    InvalidFileNameError,
+    UnsupportedFileTypeError,
+)
 from rag_assistant.observability import configure_logging, get_logger
 
 from .schemas import (
     AskRequest,
     AskResponse,
     ComponentHealth,
+    DeleteResponse,
+    DocumentListResponse,
+    DocumentOut,
     ErrorResponse,
     HealthResponse,
     IngestRequest,
     IngestResponse,
+    UploadResponse,
 )
 
 logger = get_logger(__name__)
@@ -131,7 +142,11 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=list(settings.api.cors_origins),
         allow_credentials=True,
-        allow_methods=["GET", "POST"],
+        # DELETE eklenmezse tarayıcı /documents/{ad} silme isteğini
+        # ön kontrolde (preflight) reddeder — uç nokta çalışır ama
+        # frontend'den ERİŞİLEMEZ. Yöntem listesi uç noktalarla birlikte
+        # güncellenmek zorunda.
+        allow_methods=["GET", "POST", "DELETE"],
         allow_headers=["Content-Type"],
     )
 
@@ -159,6 +174,33 @@ def create_app() -> FastAPI:
 
 def _register_error_handlers(app: FastAPI) -> None:
     """Alan hatalarını doğru HTTP durum koduna eşle."""
+
+    # ---- Doküman kütüphanesi hataları ----
+    # Her biri DOĞRU HTTP koduna eşlenir. Hepsini 500 yapmak, istemciye
+    # "sunucu bozuk" demek olurdu; oysa bunlar İSTEMCİ hatalarıdır ve
+    # istemci ne yapacağını bilebilir.
+    _LIBRARY_STATUS: dict[type[Exception], tuple[int, str]] = {
+        InvalidFileNameError: (status.HTTP_400_BAD_REQUEST, "invalid_file_name"),
+        UnsupportedFileTypeError: (status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "unsupported_file_type"),
+        FileTooLargeError: (413, "file_too_large"),  # CONTENT_TOO_LARGE
+        DocumentExistsError: (status.HTTP_409_CONFLICT, "document_exists"),
+        DocumentNotFoundError: (status.HTTP_404_NOT_FOUND, "document_not_found"),
+    }
+
+    for _exc_type, (_code, _slug) in _LIBRARY_STATUS.items():
+
+        def _handler(request: Request, exc: Exception, _code: int = _code, _slug: str = _slug):  # noqa: ANN202
+            logger.warning("api.library_error", error=_slug, detail=str(exc)[:200])
+            return JSONResponse(
+                status_code=_code,
+                content=ErrorResponse(
+                    error=_slug,
+                    detail=str(exc),
+                    request_id=request.headers.get("X-Request-ID"),
+                ).model_dump(),
+            )
+
+        app.add_exception_handler(_exc_type, _handler)
 
     @app.exception_handler(LLMUnavailableError)
     async def _llm_unavailable(request: Request, exc: LLMUnavailableError) -> JSONResponse:
@@ -359,6 +401,115 @@ def _register_routes(app: FastAPI) -> None:
         )
 
     # ------------------------------------------------------------------
+    @app.get(
+        "/documents",
+        tags=["doküman"],
+        response_model=DocumentListResponse,
+        summary="Kütüphanedeki dokümanları listele",
+    )
+    def list_documents(system: SystemDep) -> DocumentListResponse:
+        documents = system.library.list_documents()
+        return DocumentListResponse(
+            documents=[DocumentOut.from_domain(d) for d in documents],
+            total=len(documents),
+            searchable=sum(1 for d in documents if d.is_searchable),
+            needs_ocr=sum(1 for d in documents if d.needs_ocr),
+            index_vectors=system.store.count,
+            disk_usage_bytes=system.library.disk_usage_bytes(),
+        )
+
+    @app.post(
+        "/documents",
+        tags=["doküman"],
+        response_model=UploadResponse,
+        status_code=status.HTTP_201_CREATED,
+        summary="Doküman yükle (ve isteğe bağlı indeksle)",
+    )
+    def upload_document(
+        system: SystemDep,
+        file: Annotated[UploadFile, File(description="PDF dosyası")],
+        index: Annotated[bool, Form()] = True,
+        overwrite: Annotated[bool, Form()] = False,
+    ) -> UploadResponse:
+        """
+        Dosyayı yükle, isteğe bağlı olarak hemen indeksle.
+
+        AKIŞ HALİNDE OKUMA: dosya belleğe TOPTAN alınmıyor. 8 KB'lık
+        bloklar hâlinde okunup diske yazılıyor ve bayt sayısı yazarken
+        sayılıyor. `Content-Length` başlığına güvenilmez — istemci yalan
+        söyleyebilir; sınır gerçek yazılan bayta göre uygulanır.
+
+        `index=True` (varsayılan): yükleme sonrası indeksleme senkron
+        çalışır. Kullanıcı sonucu ANINDA öğrenir — dosya aranabilir mi,
+        yoksa taranmış olduğu için OCR mı gerekiyor? Arka plan görevine
+        atsaydık istemci "yüklendi" cevabını alır ama dosyanın işe yarayıp
+        yaramadığını bilemezdi.
+        """
+
+        def read_chunks() -> Iterator[bytes]:
+            while block := file.file.read(8192):
+                yield block
+
+        result = system.library.save_upload(
+            file.filename or "", read_chunks(), overwrite=overwrite
+        )
+
+        warning = (
+            f"Aynı içerik '{result.duplicate_of}' adıyla zaten var — "
+            "aynı bilgi arama sonuçlarında iki kez çıkabilir."
+            if result.duplicate_of
+            else None
+        )
+
+        if not index:
+            return UploadResponse(
+                file_name=result.file_name,
+                size_bytes=result.size_bytes,
+                indexed=False,
+                status="uploaded",
+                duplicate_of=result.duplicate_of,
+                warning=warning,
+            )
+
+        report = system.ingestion.run(system.library.raw_dir)
+        system.store.save(system.settings.paths.index_dir)
+
+        uploaded = next(
+            (d for d in report.documents if d.file_name == result.file_name), None
+        )
+        return UploadResponse(
+            file_name=result.file_name,
+            size_bytes=result.size_bytes,
+            indexed=True,
+            chunk_count=uploaded.chunk_count if uploaded else 0,
+            status=str(uploaded.status) if uploaded else "unknown",
+            needs_ocr=bool(uploaded and uploaded.needs_ocr),
+            duplicate_of=result.duplicate_of,
+            warning=warning,
+        )
+
+    @app.delete(
+        "/documents/{file_name}",
+        tags=["doküman"],
+        response_model=DeleteResponse,
+        summary="Dokümanı ve chunk'larını sil",
+    )
+    def delete_document(file_name: str, system: SystemDep) -> DeleteResponse:
+        """
+        Dokümanı index'ten, manifest'ten ve diskten siler.
+
+        Üçü birden yapılmazsa sistem tutarsız kalır: silinmiş bir
+        dokümandan alıntı yapan cevaplar üretilir ve kullanıcı kaynağı
+        bulamaz.
+        """
+        before = system.store.count
+        doc = system.library.delete(file_name)
+        return DeleteResponse(
+            file_name=doc.file_name,
+            removed_chunks=before - system.store.count,
+            index_vectors=system.store.count,
+        )
+
     @app.post(
         "/ingest",
         tags=["doküman"],

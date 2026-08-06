@@ -66,6 +66,9 @@ PDF'leri `data/raw/` içine koy, sonra:
 ```bash
 rag-ingest                              # indeksle (idempotent)
 rag-ingest --force                      # chunk ayarları değiştiyse
+rag-docs list                           # kütüphaneyi listele
+rag-docs add rapor.pdf                  # dosya ekle + indeksle
+rag-docs delete rapor.pdf               # dosyayı ve chunk'larını sil
 rag-ask "SmartSafe kaç PPE sınıfı tespit ediyor?"
 rag-ask "..." --show-context --stream
 rag-eval                                # golden set üzerinde ölç
@@ -82,6 +85,9 @@ uvicorn rag_assistant.api.app:app --reload
 |---|---|
 | `POST /ask` | Kaynak gösteren cevap |
 | `POST /ask/stream` | Token token akış (SSE) |
+| `POST /documents` | Doküman yükle (+ indeksle) |
+| `GET /documents` | Kütüphaneyi listele |
+| `DELETE /documents/{ad}` | Dokümanı ve chunk'larını sil |
 | `POST /ingest` | `data/raw/` klasörünü indeksle |
 | `GET /health` | Süreç ayakta mı (liveness) |
 | `GET /ready` | Trafik alabilir mi (readiness) |
@@ -101,6 +107,7 @@ src/rag_assistant/
 ├── indexing/        bge-m3 embedder · FAISS IndexFlatIP store
 ├── retrieval/       TR tokenizer+stemmer · dense · BM25 · RRF · rerank
 ├── generation/      Versiyonlu promptlar · LLM · kaynak gösteren cevap
+├── library.py       Doküman yaşam döngüsü (yükleme güvenliği, silme tutarlılığı)
 ├── evaluation/      Golden set · metrikler · teşhis raporu
 ├── api/             FastAPI (HTTP şeması domain'den ayrı)
 └── cli.py           rag-ingest · rag-ask · rag-eval
@@ -133,13 +140,16 @@ implementasyon yazmaktır; retrieval katmanı değişmez.
 | Reranker **zarif düşer** | İsteğe bağlı bir bileşen zorunlu işlevi düşürmemeli |
 | Uç noktalar `async def` **değil** | Bloklayan çıkarım olay döngüsünü kilitler |
 | `top_k=3` | Ölçüldü: atıf doğruluğu %66,7 → %91,7, recall kaybı yok |
+| Yükleme **akış halinde**, boyut yazarken sayılır | `Content-Length` istemciden gelir, güvenilmez |
+| Dosya adı **beyaz listeyle** temizlenir | Dizin aşımı (`../../etc/passwd`) hedef klasör dışına yazardı |
+| Silme **üç yerden birden** | Biri atlanırsa silinmiş dokümandan alıntı yapan cevaplar üretilir |
 
 ---
 
 ## Geliştirme
 
 ```bash
-pytest                    # 143 test, model yüklemeden ~2 sn
+pytest                    # 200 test, model yüklemeden ~2 sn
 ruff check src tests
 mypy src
 ```

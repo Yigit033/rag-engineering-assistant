@@ -201,6 +201,39 @@ class IngestReport:
 
 
 @dataclass(frozen=True, slots=True)
+class StoredDocument:
+    """
+    Kütüphanedeki bir dokümanın görünümü.
+
+    NEDEN AYRI BİR MODEL (manifest kaydını doğrudan döndürmek yerine):
+      Manifest bir DEPOLAMA ayrıntısıdır — alan adları, sürüm numarası,
+      `chunk_ids` listesi hep iç meseleler. Bunları dışarı vermek, depolama
+      biçimini değiştirdiğimizde her tüketiciyi kırar.
+      `StoredDocument` ise dışarıya söylediğimiz şeydir: bu doküman var,
+      şu durumda, şu kadar chunk üretti.
+    """
+
+    file_name: str
+    status: DocumentStatus
+    size_bytes: int
+    page_count: int
+    chunk_count: int
+    content_hash: str
+    embedder_model_id: str = ""
+    processed_at: str | None = None
+    error: str | None = None
+
+    @property
+    def needs_ocr(self) -> bool:
+        return self.status is DocumentStatus.NO_TEXT_LAYER
+
+    @property
+    def is_searchable(self) -> bool:
+        """Bu doküman aramaya dahil mi? (0 chunk = dahil DEĞİL)"""
+        return self.status is DocumentStatus.OK and self.chunk_count > 0
+
+
+@dataclass(frozen=True, slots=True)
 class LoadedPage:
     """Bir dokümandan çıkarılmış tek sayfa."""
 

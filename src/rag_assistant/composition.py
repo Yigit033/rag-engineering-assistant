@@ -39,6 +39,7 @@ from rag_assistant.indexing.store import FaissVectorStore
 from rag_assistant.ingestion.chunker import TokenAwareChunker
 from rag_assistant.ingestion.manifest import IngestManifest
 from rag_assistant.ingestion.pipeline import IngestionPipeline
+from rag_assistant.library import DocumentLibrary
 from rag_assistant.observability import get_logger
 from rag_assistant.retrieval.pipeline import HybridRetriever
 from rag_assistant.retrieval.rerank import CrossEncoderReranker
@@ -64,6 +65,7 @@ class RagSystem:
     llm: LLM
     answerer: GroundedAnswerer
     ingestion: IngestionPipeline
+    library: DocumentLibrary
 
     @property
     def is_ready(self) -> bool:
@@ -153,12 +155,19 @@ def build_rag_system(settings: Settings, *, warm_llm: bool = True) -> RagSystem:
         min_tokens=settings.chunking.min_tokens,
         hard_limit_tokens=settings.embedding.max_tokens,
     )
+    # Manifest TEK örnek: hem ingestion hem library aynı defteri kullanır.
+    # İki ayrı örnek olsaydı biri kayıt eklerken diğeri eski hâli tutar ve
+    # silme işlemi manifest'te iz bırakırdı.
+    manifest = IngestManifest(settings.paths.index_dir)
+
     ingestion = IngestionPipeline(
         embedder=embedder,
         chunker=chunker,
         store=store,
-        manifest=IngestManifest(settings.paths.index_dir),
+        manifest=manifest,
     )
+
+    library = DocumentLibrary(settings, store=store, manifest=manifest)
 
     logger.info(
         "system.built",
@@ -177,4 +186,5 @@ def build_rag_system(settings: Settings, *, warm_llm: bool = True) -> RagSystem:
         llm=llm,
         answerer=answerer,
         ingestion=ingestion,
+        library=library,
     )

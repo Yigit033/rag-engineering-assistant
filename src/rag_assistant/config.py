@@ -224,10 +224,31 @@ class GenerationSettings(BaseModel):
     check_groundedness: bool = False
 
 
+class UploadSettings(BaseModel):
+    """
+    Dosya yükleme sınırları.
+
+    Bu değerler GÜVENLİK sınırlarıdır, tercih değil. Sunucuya dosya
+    yükletmek en çok istismar edilen uç noktadır; sınırlar sunucuda
+    zorunlu kılınır, istemciye güvenilmez.
+    """
+
+    # 50 MB. İstemcinin bildirdiği Content-Length'e GÜVENİLMEZ; akış
+    # okunurken bayt sayılır ve sınır aşılınca yazma durdurulur.
+    max_size_bytes: int = 50 * 1024 * 1024
+
+    # Beyaz liste — kara liste DEĞİL. Kara liste her zaman eksiktir;
+    # beyaz liste bilmediğin her şeyi reddeder.
+    allowed_extensions: tuple[str, ...] = (".pdf",)
+
+    # Dosya adı uzunluğu (dosya sistemi sınırlarının altında güvenli değer).
+    max_filename_length: int = 200
+
+
 class APISettings(BaseModel):
     host: str = "127.0.0.1"
     port: int = 8000
-    cors_origins: tuple[str, ...] = ("http://localhost:8501",)
+    cors_origins: tuple[str, ...] = ("http://localhost:8501", "http://localhost:3000")
 
 
 class LogSettings(BaseModel):
@@ -253,6 +274,7 @@ class Settings(BaseSettings):
     retrieval: RetrievalSettings = RetrievalSettings()
     llm: LLMSettings = LLMSettings()
     generation: GenerationSettings = GenerationSettings()
+    upload: UploadSettings = UploadSettings()
     api: APISettings = APISettings()
     log: LogSettings = LogSettings()
 

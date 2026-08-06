@@ -117,6 +117,47 @@ class FakeIngestion:
         )
 
 
+class FakeLibrary:
+    """Sahte doküman kütüphanesi."""
+
+    def __init__(self) -> None:
+        from rag_assistant.domain.models import StoredDocument
+
+        self.docs = [
+            StoredDocument("ok.pdf", DocumentStatus.OK, 1024, 5, 6, "h1"),
+            StoredDocument("tarama.pdf", DocumentStatus.NO_TEXT_LAYER, 2048, 7, 0, "h2"),
+        ]
+        self.uploaded: list[str] = []
+        self.deleted: list[str] = []
+        self.raw_dir = "raw"
+
+    def list_documents(self):  # type: ignore[no-untyped-def]
+        return list(self.docs)
+
+    def disk_usage_bytes(self) -> int:
+        return 3072
+
+    def save_upload(self, file_name, chunks, *, overwrite=False):  # type: ignore[no-untyped-def]
+        from rag_assistant.library import UploadResult, validate_upload_name
+
+        # Sahte, GERÇEĞİN kullandığı doğrulamayı çağırır — kendi kopyasını
+        # yazsaydı gerçekten sapar ve testler yanlış güven verirdi.
+        safe = validate_upload_name(file_name, allowed_extensions=(".pdf",))
+        size = sum(len(b) for b in chunks)
+        self.uploaded.append(safe)
+        return UploadResult(file_name=safe, size_bytes=size, content_hash="h")
+
+    def delete(self, file_name):  # type: ignore[no-untyped-def]
+        from rag_assistant.library import DocumentNotFoundError, sanitize_file_name
+
+        safe = sanitize_file_name(file_name)
+        for d in self.docs:
+            if d.file_name == safe:
+                self.deleted.append(safe)
+                return d
+        raise DocumentNotFoundError(f"Doküman bulunamadı: {safe}")
+
+
 @dataclass
 class FakeSystem:
     settings: Any
@@ -126,6 +167,7 @@ class FakeSystem:
     llm: Any
     answerer: Any
     ingestion: Any
+    library: Any
 
 
 @pytest.fixture
@@ -144,6 +186,7 @@ def client_factory():  # type: ignore[no-untyped-def]
             llm=FakeLLM(),
             answerer=FakeAnswerer(answer or make_answer()),
             ingestion=FakeIngestion(),
+            library=FakeLibrary(),
         )
         # lifespan'i atlıyoruz: gerçek modelleri yüklemesin.
         app_module._system = system  # type: ignore[assignment]
@@ -350,3 +393,115 @@ class TestContract:
         spec = client.get("/openapi.json").json()
         for path in ("/ask", "/ask/stream", "/ingest", "/health", "/ready"):
             assert path in spec["paths"], f"{path} sözleşmede yok"
+
+
+# ---------------------------------------------------------------------------
+# Doküman yönetimi uç noktaları
+# ---------------------------------------------------------------------------
+class TestDocumentEndpoints:
+    def test_listeleme(self, client_factory) -> None:  # type: ignore[no-untyped-def]
+        client, _ = client_factory()
+        d = client.get("/documents").json()
+
+        assert d["total"] == 2
+        assert d["searchable"] == 1, "0 chunk'lı doküman aranabilir sayılmamalı"
+        assert d["needs_ocr"] == 1
+        assert d["disk_usage_bytes"] == 3072
+
+    def test_listede_turetilmis_alanlar_var(self, client_factory) -> None:  # type: ignore[no-untyped-def]
+        """
+        `is_searchable` / `needs_ocr` sunucuda hesaplanır. İstemcinin
+        `status` string'ini yorumlayıp aynı mantığı yeniden yazmasını
+        istemiyoruz — kural tek yerde kalmalı.
+        """
+        client, _ = client_factory()
+        docs = {x["file_name"]: x for x in client.get("/documents").json()["documents"]}
+
+        assert docs["ok.pdf"]["is_searchable"] is True
+        assert docs["tarama.pdf"]["is_searchable"] is False
+        assert docs["tarama.pdf"]["needs_ocr"] is True
+
+    def test_yukleme_indekslemeden(self, client_factory) -> None:  # type: ignore[no-untyped-def]
+        client, system = client_factory()
+        r = client.post(
+            "/documents",
+            files={"file": ("yeni.pdf", b"%PDF-1.4 icerik", "application/pdf")},
+            data={"index": "false"},
+        )
+        assert r.status_code == 201
+        d = r.json()
+        assert d["file_name"] == "yeni.pdf"
+        assert d["indexed"] is False
+        assert system.library.uploaded == ["yeni.pdf"]
+
+    def test_yukleme_ve_indeksleme(self, client_factory) -> None:  # type: ignore[no-untyped-def]
+        """Varsayılan: yükle + indeksle. Kullanıcı sonucu ANINDA öğrenmeli."""
+        client, _ = client_factory()
+        d = client.post(
+            "/documents",
+            files={"file": ("ok.pdf", b"%PDF veri", "application/pdf")},
+        ).json()
+        assert d["indexed"] is True
+        assert d["chunk_count"] == 6
+        assert d["status"] == "ok"
+
+    def test_yuklemede_dizin_asimi_temizlenir(self, client_factory) -> None:  # type: ignore[no-untyped-def]
+        client, system = client_factory()
+        d = client.post(
+            "/documents",
+            files={"file": ("../../../kacti.pdf", b"veri", "application/pdf")},
+            data={"index": "false"},
+        ).json()
+        assert d["file_name"] == "kacti.pdf"
+        assert system.library.uploaded == ["kacti.pdf"]
+
+    @pytest.mark.parametrize(
+        ("bad_name", "expected_status", "expected_error"),
+        [
+            ("zararli.exe", 415, "unsupported_file_type"),
+            ("CON.pdf", 400, "invalid_file_name"),
+            ("rapor<>.pdf", 400, "invalid_file_name"),
+        ],
+    )
+    def test_gecersiz_dosyalar_dogru_koda_eslenir(
+        self, client_factory, bad_name, expected_status, expected_error
+    ) -> None:  # type: ignore[no-untyped-def]
+        """
+        Hepsini 500 yapmak "sunucu bozuk" demek olurdu. Bunlar İSTEMCİ
+        hatası — istemci ne yapacağını bilebilmeli.
+        """
+        client, _ = client_factory()
+        r = client.post(
+            "/documents",
+            files={"file": (bad_name, b"veri", "application/octet-stream")},
+            data={"index": "false"},
+        )
+        assert r.status_code == expected_status
+        assert r.json()["error"] == expected_error
+
+    def test_silme(self, client_factory) -> None:  # type: ignore[no-untyped-def]
+        client, system = client_factory()
+        r = client.delete("/documents/ok.pdf")
+        assert r.status_code == 200
+        assert system.library.deleted == ["ok.pdf"]
+
+    def test_olmayan_dokuman_404(self, client_factory) -> None:  # type: ignore[no-untyped-def]
+        client, _ = client_factory()
+        r = client.delete("/documents/yok.pdf")
+        assert r.status_code == 404
+        assert r.json()["error"] == "document_not_found"
+
+    def test_cors_delete_izinli(self, client_factory) -> None:  # type: ignore[no-untyped-def]
+        """
+        DELETE, CORS izin listesinde olmazsa tarayıcı ön kontrolde reddeder:
+        uç nokta çalışır ama frontend'den ERİŞİLEMEZ.
+        """
+        client, _ = client_factory()
+        r = client.options(
+            "/documents/ok.pdf",
+            headers={
+                "Origin": "http://localhost:3000",
+                "Access-Control-Request-Method": "DELETE",
+            },
+        )
+        assert "DELETE" in r.headers.get("access-control-allow-methods", "")
