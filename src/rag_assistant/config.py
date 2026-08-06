@@ -248,7 +248,17 @@ class UploadSettings(BaseModel):
 class APISettings(BaseModel):
     host: str = "127.0.0.1"
     port: int = 8000
-    cors_origins: tuple[str, ...] = ("http://localhost:8501", "http://localhost:3000")
+    # `localhost` ve `127.0.0.1` CORS için FARKLI origin'lerdir — aynı
+    # makineye işaret etseler bile tarayıcı onları eşleştirmez. Yalnızca
+    # birini listelemek, kullanıcı diğer adresle açtığında tüm istekleri
+    # sessizce engeller: sayfa açılır, veri hiç gelmez, konsolda CORS
+    # hatası çıkar. Ölçüldü.
+    cors_origins: tuple[str, ...] = (
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:8501",
+        "http://127.0.0.1:8501",
+    )
 
 
 class LogSettings(BaseModel):

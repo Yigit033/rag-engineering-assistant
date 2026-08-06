@@ -1,0 +1,95 @@
+@import "tailwindcss";
+
+/*
+ * Tailwind v4 uses CSS-based configuration — no tailwind.config.ts.
+ * Design tokens are declared once here and referenced as utility classes.
+ */
+@theme {
+  --color-surface: #ffffff;
+  --color-surface-muted: #f6f7f9;
+  --color-border: #e3e6ea;
+  --color-ink: #14171a;
+  --color-ink-muted: #5b6470;
+
+  --color-accent: #1f6feb;
+  --color-accent-soft: #eaf1ff;
+
+  /* Semantic colours. Each one carries meaning, not decoration:
+     grounded = answer is backed by sources
+     abstain  = the system declined to answer (a FEATURE, not a failure)
+     warn     = document present but not searchable
+     danger   = destructive action or hard error                       */
+  --color-grounded: #1a7f4b;
+  --color-grounded-soft: #e8f6ee;
+  --color-abstain: #7c5cc4;
+  --color-abstain-soft: #f1ecfb;
+  --color-warn: #b7791f;
+  --color-warn-soft: #fdf5e6;
+  --color-danger: #c0392b;
+  --color-danger-soft: #fdecea;
+
+  --font-sans: ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", "Consolas", monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  @theme {
+    --color-surface: #0f1216;
+    --color-surface-muted: #171b21;
+    --color-border: #262c35;
+    --color-ink: #e8eaed;
+    --color-ink-muted: #9aa4b2;
+
+    --color-accent: #58a6ff;
+    --color-accent-soft: #16243b;
+
+    --color-grounded: #4ec98a;
+    --color-grounded-soft: #12291d;
+    --color-abstain: #b39ddb;
+    --color-abstain-soft: #241d33;
+    --color-warn: #e0b341;
+    --color-warn-soft: #2b2313;
+    --color-danger: #f0836f;
+    --color-danger-soft: #331b18;
+  }
+}
+
+html {
+  color-scheme: light dark;
+}
+
+body {
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Respect users who ask for reduced motion — the streaming caret and
+   spinners are decorative, never load-bearing. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes caret-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+.caret::after {
+  content: "▌";
+  margin-left: 1px;
+  animation: caret-blink 1s step-end infinite;
+  color: var(--color-accent);
+}

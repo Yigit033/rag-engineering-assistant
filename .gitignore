@@ -51,3 +51,9 @@ models/
 
 # --- Claude Code oturum ayarlari (kisisel izin listesi, proje ayari degil) ---
 .claude/
+
+# --- Frontend ---
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env.local
