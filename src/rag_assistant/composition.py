@@ -119,6 +119,7 @@ def build_rag_system(settings: Settings, *, warm_llm: bool = True) -> RagSystem:
             settings.retrieval.reranker_model,
             device=settings.retrieval.reranker_device,
             min_score=settings.retrieval.reranker_min_score,
+            required_ram_gb=settings.retrieval.reranker_required_ram_gb,
         )
         if settings.retrieval.use_reranker
         else None

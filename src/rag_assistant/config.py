@@ -140,6 +140,14 @@ class RetrievalSettings(BaseModel):
     use_reranker: bool = True
     reranker_model: str = "BAAI/bge-reranker-v2-m3"
     reranker_device: str = "cpu"
+    # Reranker yüklenmeden önce aranan boş bellek (GB). Buna 1.4× güvenlik
+    # payı uygulanır (bkz. resources.py).
+    #
+    # NEDEN YAPILANDIRILABİLİR: eşik, sürecin bir kez işletim sistemi
+    # tarafından öldürüldüğü koşullarda belirlendi. Farklı makinelerde ve
+    # farklı model boyutlarında doğru değer farklıdır. Sabit bir sayı,
+    # sığabilecek bir modeli gereksizce reddedebilir — nitekim etti.
+    reranker_required_ram_gb: float = 2.3
     # Reranker skoru bu eşiğin altındaysa chunk ilgisiz sayılır ve atılır.
     # None = filtreleme yok. Eşik ampirik olarak golden set üzerinde bulunur.
     reranker_min_score: float | None = None

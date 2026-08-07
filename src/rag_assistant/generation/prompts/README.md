@@ -134,3 +134,50 @@ Denenecekler (tek tek, ölçerek):
 `top_k=3` ile düzeldi. İlginç: prompt'la (v2) çözülemeyen problem, bağlamı
 daraltarak çözüldü — sorunun talimat değil **dikkat dağınıklığı** olduğunu
 gösteriyor.
+
+---
+
+## Deney 4 — Reranker açık/kapalı (ÖLÇÜLDÜ, kapalı bırakıldı)
+
+**Hipotez:** Cross-encoder reranker, RRF sıralamasını iyileştirir ve cevap
+kalitesini artırır.
+
+**Kurulum:** Tek sistem, embedder ve store paylaşımlı; tek değişken reranker.
+LLM bilinçli olarak yüklenmedi — reranker yalnızca retrieval'ı etkiler, ve
+üçü birden bu makinenin belleğine sığmıyor (ölçüldü: LLM sıcakken reranker
+kontrolünde yalnızca 0.18 GB boş kalıyor).
+
+| Metrik | KAPALI | AÇIK | Fark |
+|---|---|---|---|
+| Hit@k | %100 | %100 | = |
+| Recall@k | %100 | %100 | = |
+| **MRR** | %83,3 | **%95,8** | **+12,5 puan** |
+| Precision@k | %38,9 | %38,9 | = |
+| **Gecikme/sorgu** | **71 ms** | **17.474 ms** | **245×** |
+
+**Sonuç: hipotez KISMEN doğru, ama takas kabul edilemez.**
+
+1. **Sıralama gerçekten iyileşiyor.** MRR 0,833 → 0,958: doğru kaynak
+   neredeyse her zaman 1. sıraya çıkıyor.
+2. **Ama LLM'e giden chunk'lar AYNI.** Hit, Recall ve Precision değişmedi —
+   reranker yeni aday bulmuyor, mevcut 3 adayı yeniden sıralıyor. Yani
+   kazanç yalnızca sıra kalitesinde.
+3. **Bedel 245×.** Cross-encoder her aday için modeli ayrı çalıştırır:
+   20 aday × ~870 ms = 17,5 sn. Bi-encoder'da vektörler önceden hazır (71 ms).
+
+**Karar: CPU'da KAPALI.** Kullanıcının cevap süresi 2 sn'den 19,5 sn'ye
+çıkıyor; karşılığında modele giden bağlam değişmiyor.
+
+**Ne zaman açılmalı:** embedder + reranker GPU'ya taşınırsa süre ~1 sn'ye
+iner ve +12,5 puan MRR pratikte bedavaya gelir. Gereken: CUDA derlemeli
+torch + LLM'in uzak/bulut uca taşınması (adaptör hazır, kod değişmez).
+
+**Yan bulgu — bellek eşiği yapılandırılabilir yapıldı.**
+`reranker_required_ram_gb` sabit 2,3 GB idi ve 1,4× güvenlik payıyla
+3,22 GB arıyordu. Bu eşik, sürecin bir kez işletim sistemi tarafından
+öldürüldüğü koşullarda (0,65 GB boşken) belirlenmişti; farklı makinelerde
+sığabilecek bir modeli gereksizce reddediyor. Artık ayarlanabilir.
+
+**Yan bulgu — gürültüye dayanıklılık.** Index'e 18 chunk'lık iki alakasız
+doküman eklendi (6 → 24 vektör). Tüm metrikler AYNI kaldı. Hybrid retrieval
+alakasız içerikten etkilenmedi.
