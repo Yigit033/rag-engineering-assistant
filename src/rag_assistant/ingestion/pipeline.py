@@ -22,8 +22,7 @@ from rag_assistant.domain.models import (
     DocumentStatus,
     IngestReport,
 )
-from rag_assistant.domain.protocols import Chunker, Embedder
-from rag_assistant.indexing.store import FaissVectorStore
+from rag_assistant.domain.protocols import Chunker, Embedder, VectorStore
 from rag_assistant.ingestion.loaders import (
     DocumentLoadError,
     LoaderRegistry,
@@ -43,7 +42,7 @@ class IngestionPipeline:
         *,
         embedder: Embedder,
         chunker: Chunker,
-        store: FaissVectorStore,
+        store: VectorStore,
         manifest: IngestManifest,
         loaders: LoaderRegistry | None = None,
     ) -> None:

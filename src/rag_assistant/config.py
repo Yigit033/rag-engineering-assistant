@@ -22,6 +22,7 @@ veya proje kökündeki `.env` dosyasıyla.
 
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -60,6 +61,28 @@ class PathSettings(BaseModel):
     def ensure(self) -> None:
         for d in (self.raw_dir, self.index_dir, self.logs_dir, self.eval_dir):
             d.mkdir(parents=True, exist_ok=True)
+
+
+class StoreSettings(BaseModel):
+    """
+    Vektör deposu seçimi.
+
+    `backend`: "faiss" (varsayılan, lokal) veya "qdrant" (bulut/docker).
+      Protocol mimarisi sayesinde geçiş tek satırlık config değişikliğidir;
+      retrieval/generation katmanları hangi depoyu kullandığını bilmez.
+
+    Qdrant bağlantı bilgileri yalnızca backend="qdrant" olduğunda okunur.
+    `qdrant_api_key_env`: sırrın kendisi değil, sırrı taşıyan ortam
+      değişkeninin adı — LLM anahtarıyla aynı güvenlik prensibi.
+    """
+
+    backend: Literal["faiss", "qdrant"] = "faiss"
+
+    # Qdrant bağlantı bilgileri (yalnızca backend="qdrant" ise gerekli)
+    qdrant_url: str = ""
+    qdrant_collection: str = "rag_chunks"
+    # Sırrın kendisi değil, sırrı taşıyan ortam değişkeninin adı.
+    qdrant_api_key_env: str = "RAG_QDRANT_API_KEY"
 
 
 class EmbeddingSettings(BaseModel):
@@ -287,6 +310,7 @@ class Settings(BaseSettings):
     )
 
     paths: PathSettings = PathSettings()
+    store: StoreSettings = StoreSettings()
     embedding: EmbeddingSettings = EmbeddingSettings()
     chunking: ChunkingSettings = ChunkingSettings()
     retrieval: RetrievalSettings = RetrievalSettings()
@@ -323,4 +347,10 @@ def get_settings() -> Settings:
     `Depends(get_settings)` olarak kullanılabilir ve testte
     `get_settings.cache_clear()` ile sıfırlanabilir.
     """
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(PROJECT_ROOT / ".env")
+    except ImportError:
+        pass
+    
     return Settings()

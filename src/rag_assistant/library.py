@@ -28,7 +28,7 @@ from pathlib import Path
 
 from rag_assistant.config import Settings
 from rag_assistant.domain.models import DocumentStatus, StoredDocument
-from rag_assistant.indexing.store import FaissVectorStore
+from rag_assistant.domain.protocols import VectorStore
 from rag_assistant.ingestion.loaders import file_content_hash
 from rag_assistant.ingestion.manifest import IngestManifest
 from rag_assistant.observability import get_logger
@@ -212,7 +212,7 @@ class DocumentLibrary:
         self,
         settings: Settings,
         *,
-        store: FaissVectorStore,
+        store: VectorStore,
         manifest: IngestManifest,
     ) -> None:
         self._settings = settings

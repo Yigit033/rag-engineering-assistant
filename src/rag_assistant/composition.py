@@ -30,7 +30,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from rag_assistant.config import Settings
-from rag_assistant.domain.protocols import LLM, Embedder, Retriever
+from rag_assistant.domain.protocols import LLM, Embedder, Retriever, VectorStore
 from rag_assistant.generation.answerer import GroundedAnswerer
 from rag_assistant.generation.factory import build_llm, preflight
 from rag_assistant.generation.prompt import PromptLibrary
@@ -60,7 +60,7 @@ class RagSystem:
 
     settings: Settings
     embedder: Embedder
-    store: FaissVectorStore
+    store: VectorStore
     retriever: Retriever
     llm: LLM
     answerer: GroundedAnswerer
@@ -100,12 +100,24 @@ def build_rag_system(settings: Settings, *, warm_llm: bool = True) -> RagSystem:
         normalize=settings.embedding.normalize,
     )
 
-    # ---- 3. Vektör deposu (varsa yüklenir; model uyumsuzsa açıkça hata verir)
-    store = FaissVectorStore.open_or_create(
-        settings.paths.index_dir,
-        dimension=embedder.dimension,
-        embedder_model_id=embedder.model_id,
-    )
+    # ---- 3. Vektör deposu (backend config'e göre seçilir)
+    store: VectorStore
+    if settings.store.backend == "qdrant":
+        from rag_assistant.indexing.qdrant_store import QdrantVectorStore
+
+        store = QdrantVectorStore.from_settings(
+            url=settings.store.qdrant_url,
+            api_key_env=settings.store.qdrant_api_key_env,
+            collection_name=settings.store.qdrant_collection,
+            dimension=embedder.dimension,
+            embedder_model_id=embedder.model_id,
+        )
+    else:
+        store = FaissVectorStore.open_or_create(
+            settings.paths.index_dir,
+            dimension=embedder.dimension,
+            embedder_model_id=embedder.model_id,
+        )
 
     # ---- 4. Retriever'lar + birleştirme + (tembel) reranking
     retrievers: list[Retriever] = []

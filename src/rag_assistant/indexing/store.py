@@ -34,7 +34,7 @@ from __future__ import annotations
 import json
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import faiss
 import numpy as np
@@ -95,7 +95,7 @@ class FaissVectorStore:
     # ------------------------------------------------------------------
     @property
     def count(self) -> int:
-        return int(self._index.ntotal)
+        return self._index.ntotal
 
     @property
     def embedder_model_id(self) -> str | None:
@@ -281,7 +281,7 @@ class FaissVectorStore:
                 "Vektör uzayları uyumsuz — index'i yeniden oluşturun."
             )
 
-        self._index = faiss.read_index(str(directory / INDEX_FILE))
+        self._index = cast(faiss.IndexFlatIP, faiss.read_index(str(directory / INDEX_FILE)))
         raw = json.loads((directory / CHUNKS_FILE).read_text(encoding="utf-8"))
         self._chunks = [_chunk_from_dict(d) for d in raw]
         self._id_to_row = {c.id: i for i, c in enumerate(self._chunks)}

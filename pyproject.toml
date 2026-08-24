@@ -41,6 +41,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+qdrant = ["qdrant-client>=1.12"]
 ui = ["streamlit>=1.40"]
 dev = [
     "pytest>=8.3",
